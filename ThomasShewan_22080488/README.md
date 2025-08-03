@@ -1,58 +1,150 @@
+# AWS Lambda Canary Monitor
 
-# Welcome to your CDK Python project!
+Student: Thomas Shewan (22080488)  
+Course: WSU DevOps 2025
 
-This is a blank project for CDK development with Python.
+## Overview
 
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
+This project implements a web health monitoring canary using AWS Lambda and CDK. The system monitors web resources and collects three key metrics: availability, response latency, and error rates.
 
-This project is set up like a standard Python project.  The initialization
-process also creates a virtualenv within this project, stored under the `.venv`
-directory.  To create the virtualenv it assumes that there is a `python3`
-(or `python` for Windows) executable in your path with access to the `venv`
-package. If for any reason the automatic creation of the virtualenv fails,
-you can create the virtualenv manually.
+## Architecture
 
-To manually create a virtualenv on MacOS and Linux:
+The solution uses AWS Lambda to perform HTTP health checks against target websites. The function is deployed using AWS CDK for infrastructure as code. Currently configured for manual triggering with automatic scheduling planned for future implementation.
 
-```
-$ python -m venv .venv
-```
+## Metrics Collected
 
-After the init process completes and the virtualenv is created, you can use the following
-step to activate your virtualenv.
+1. **Availability**: HTTP 200 response indicates service availability
+2. **Latency**: Response time measured in milliseconds
+3. **Error Rate**: Detection of HTTP 4xx/5xx status codes
 
-```
-$ source .venv/bin/activate
-```
+## Technical Implementation
 
-If you are a Windows platform, you would activate the virtualenv like this:
+- **Runtime**: Python 3.11
+- **HTTP Library**: urllib (built-in, no external dependencies)
+- **Infrastructure**: AWS CDK
+- **Deployment**: CloudFormation via CDK
 
-```
-% .venv\Scripts\activate.bat
-```
-
-Once the virtualenv is activated, you can install the required dependencies.
+## Project Structure
 
 ```
-$ pip install -r requirements.txt
+ThomasShewan_22080488/
+├── app.py                          # CDK application entry point
+├── cdk.json                        # CDK configuration
+├── requirements.txt                # Dependencies
+├── modules/
+│   └── MonitoringLambda.py                # Lambda function implementation
+├── thomas_shewan_22080488/
+│   └── thomas_shewan_22080488_stack.py  # CDK stack definition
+└── tests/
+    └── unit/
+        └── test_thomas_shewan_22080488_stack.py
 ```
 
-At this point you can now synthesize the CloudFormation template for this code.
+## Setup Instructions
 
+### Prerequisites
+
+- Python 3.11+
+- AWS CLI configured with appropriate permissions
+- Node.js and npm
+- AWS CDK CLI: `npm install -g aws-cdk`
+
+### Installation
+
+1. Create and activate virtual environment:
+
+```bash
+# Windows
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+
+# macOS/Linux
+python -m venv .venv
+source .venv/bin/activate
 ```
-$ cdk synth
+
+2. Install dependencies:
+
+```bash
+pip install -r requirements.txt
 ```
 
-To add additional dependencies, for example other CDK libraries, just add
-them to your `setup.py` file and rerun the `pip install -r requirements.txt`
-command.
+3. Bootstrap CDK (first time only):
 
-## Useful commands
+```bash
+cdk bootstrap
+```
 
- * `cdk ls`          list all stacks in the app
- * `cdk synth`       emits the synthesized CloudFormation template
- * `cdk deploy`      deploy this stack to your default AWS account/region
- * `cdk diff`        compare deployed stack with current state
- * `cdk docs`        open CDK documentation
+4. Deploy infrastructure:
 
-Enjoy!
+```bash
+cdk synth
+cdk deploy
+```
+
+## Testing
+
+### Manual Testing
+
+Test the deployed Lambda function through:
+
+- AWS Console: Lambda → WHCanaryLambda → Test
+- AWS CLI: `aws lambda invoke --function-name WHCanaryLambda output.json`
+
+### Unit Tests
+
+```bash
+python -m pytest tests/ -v
+```
+
+## Sample Output
+
+Successful health check:
+
+```json
+{
+  "url": "https://b2c-application-web.vercel.app/",
+  "availability": true,
+  "latency_ms": 245.67,
+  "error_rate": 0,
+  "status_code": 200,
+  "timestamp": 1722654712.123
+}
+```
+
+Error detection:
+
+```json
+{
+  "url": "https://b2c-application-web.vercel.app/",
+  "availability": false,
+  "latency_ms": null,
+  "error_rate": 1,
+  "error": "HTTP 404: Not Found",
+  "timestamp": 1722654712.123
+}
+```
+
+## Configuration
+
+To monitor a different URL, modify `target_url` in `modules/WHLambda.py`:
+
+```python
+target_url = "https://your-target-website.com"
+```
+
+## Troubleshooting
+
+Logs are available in CloudWatch under `/aws/lambda/WHCanaryLambda`.
+
+To remove all resources: `cdk destroy`
+
+## Requirements Fulfilled
+
+This project meets the assignment requirements:
+
+- Uses AWS CDK to build a canary in Lambda function
+- Operates in single AWS region
+- Measures web resource metrics for monitoring
+- Code managed in version control
+- Documentation provided in markdown
