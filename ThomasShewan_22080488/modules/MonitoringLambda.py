@@ -11,7 +11,7 @@ def lambda_handler(event, context):
         # Measure latency
         start_time = time.time()
         
-        # Make HTTP request using urllib (built-in to Python)
+        # Make HTTP request using urllib
         req = urllib.request.Request(target_url)
         req.add_header('User-Agent', 'AWS-Lambda-Canary/1.0')
         
@@ -26,20 +26,20 @@ def lambda_handler(event, context):
         # Metric 2: Latency (response time in ms)
         latency_ms = round((end_time - start_time) * 1000, 2)
         
-        # Metric 3: Error rate (HTTP errors vs success)
-        is_error = status_code >= 400  
-        error_rate = 1 if is_error else 0  
+        # Metric 3: Throughput (bytes per second)
+        response_size_bytes = len(response_data)
+        throughput_bps = round(response_size_bytes / (latency_ms / 1000), 2) if latency_ms > 0 else 0
         
         # Return metrics
         metrics = {
             "url": target_url,
             "availability": is_available,
             "latency_ms": latency_ms,
-            "error_rate": error_rate,
+            "throughput_bps": throughput_bps,
+            "response_size_bytes": response_size_bytes,
             "status_code": status_code,
             "timestamp": time.time()
         }
-        
         print(f"Canary metrics: {json.dumps(metrics)}")
         
         return {
@@ -55,7 +55,7 @@ def lambda_handler(event, context):
             "url": target_url,
             "availability": False,
             "latency_ms": latency_ms,
-            "error_rate": 1,
+            "throughput_bps": 0,
             "status_code": e.code,
             "error": f"HTTP {e.code}: {e.reason}",
             "timestamp": time.time()
@@ -74,7 +74,7 @@ def lambda_handler(event, context):
             "url": target_url,
             "availability": False,
             "latency_ms": None,
-            "error_rate": 1,
+            "throughput_bps": 0,
             "error": str(e),
             "timestamp": time.time()
         }

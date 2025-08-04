@@ -5,7 +5,7 @@ Course: WSU DevOps 2025
 
 ## Overview
 
-This project implements a web health monitoring canary using AWS Lambda and CDK. The system monitors web resources and collects three key metrics: availability, response latency, and error rates.
+This project implements a web health monitoring canary using AWS Lambda and CDK. The system monitors web resources and collects key performance metrics: availability, response latency, and data throughput.
 
 ## Architecture
 
@@ -15,7 +15,8 @@ The solution uses AWS Lambda to perform HTTP health checks against target websit
 
 1. **Availability**: HTTP 200 response indicates service availability
 2. **Latency**: Response time measured in milliseconds
-3. **Error Rate**: Detection of HTTP 4xx/5xx status codes
+3. **Throughput**: Data delivery rate in bytes per second (Traffic Golden Signal)
+4. **Response Size**: Content size for performance analysis
 
 ## Technical Implementation
 
@@ -23,6 +24,7 @@ The solution uses AWS Lambda to perform HTTP health checks against target websit
 - **HTTP Library**: urllib (built-in, no external dependencies)
 - **Infrastructure**: AWS CDK
 - **Deployment**: CloudFormation via CDK
+- **Monitoring**: Implements 3 of 4 Google SRE Golden Signals
 
 ## Project Structure
 
@@ -88,14 +90,8 @@ cdk deploy
 
 Test the deployed Lambda function through:
 
-- AWS Console: Lambda → WHCanaryLambda → Test
-- AWS CLI: `aws lambda invoke --function-name WHCanaryLambda output.json`
-
-### Unit Tests
-
-```bash
-python -m pytest tests/ -v
-```
+- AWS Console: Lambda → MonitoringLambda → Test
+- AWS CLI: `aws lambda invoke --function-name MonitoringLambda output.json`
 
 ## Sample Output
 
@@ -106,7 +102,8 @@ Successful health check:
   "url": "https://b2c-application-web.vercel.app/",
   "availability": true,
   "latency_ms": 245.67,
-  "error_rate": 0,
+  "throughput_bps": 204081.63,
+  "response_size_bytes": 50000,
   "status_code": 200,
   "timestamp": 1722654712.123
 }
@@ -118,8 +115,9 @@ Error detection:
 {
   "url": "https://b2c-application-web.vercel.app/",
   "availability": false,
-  "latency_ms": null,
-  "error_rate": 1,
+  "latency_ms": 1500.45,
+  "throughput_bps": 0,
+  "status_code": 404,
   "error": "HTTP 404: Not Found",
   "timestamp": 1722654712.123
 }
@@ -127,17 +125,11 @@ Error detection:
 
 ## Configuration
 
-To monitor a different URL, modify `target_url` in `modules/WHLambda.py`:
+To monitor a different URL, modify `target_url` in `modules/MonitoringLambda.py`:
 
 ```python
 target_url = "https://your-target-website.com"
 ```
-
-## Troubleshooting
-
-Logs are available in CloudWatch under `/aws/lambda/WHCanaryLambda`.
-
-To remove all resources: `cdk destroy`
 
 ## Requirements Fulfilled
 
@@ -146,5 +138,6 @@ This project meets the assignment requirements:
 - Uses AWS CDK to build a canary in Lambda function
 - Operates in single AWS region
 - Measures web resource metrics for monitoring
+- Implements industry-standard Golden Signals monitoring
 - Code managed in version control
 - Documentation provided in markdown
