@@ -27,8 +27,8 @@ def lambda_handler(event, context):
         latency_ms = round((end_time - start_time) * 1000, 2)
         
         # Metric 3: Error rate (HTTP errors vs success)
-        is_error = status_code >= 400  # 4xx and 5xx are errors
-        error_rate = 1 if is_error else 0  # 1 = error, 0 = success
+        is_error = status_code >= 400  
+        error_rate = 1 if is_error else 0  
         
         # Return metrics
         metrics = {
@@ -48,7 +48,6 @@ def lambda_handler(event, context):
         }
         
     except urllib.error.HTTPError as e:
-        # HTTP error (4xx, 5xx)
         end_time = time.time()
         latency_ms = round((end_time - start_time) * 1000, 2)
         
