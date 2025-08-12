@@ -9,7 +9,14 @@ This project implements a web health monitoring canary using AWS Lambda and CDK.
 
 ## Architecture
 
-The solution uses AWS Lambda to perform HTTP health checks against target websites. The function is deployed using AWS CDK for infrastructure as code. Currently configured for manual triggering with automatic scheduling planned for future implementation.
+The solution uses AWS Lambda to perform HTTP health checks against target websites, with metrics sent to Amazon CloudWatch. The infrastructure is defined using AWS CDK, which provisions:
+
+- **CloudWatchStack**: Deploys the Lambda function, schedules it to run every 5 minutes, and creates a CloudWatch dashboard with widgets for Availability, Latency, Throughput, and Content Length for each monitored website.
+- **Lambda Functions**:
+  - `MonitoringLambda.py`: Monitors a single web resource, measuring availability, latency, throughput, and response size.
+  - `cloudWatchLambda.py`: Monitors multiple websites (from `websites.json`), collects metrics, and pushes them to CloudWatch for dashboard visualization.
+
+The Lambda functions are triggered automatically via an EventBridge schedule (every 5 minutes), and metrics are visualized in a CloudWatch dashboard.
 
 ## Metrics Collected
 
@@ -34,9 +41,12 @@ ThomasShewan_22080488/
 ├── cdk.json                        # CDK configuration
 ├── requirements.txt                # Dependencies
 ├── modules/
-│   └── MonitoringLambda.py                # Lambda function implementation
+│   ├── MonitoringLambda.py         # Lambda: single website health check
+│   ├── cloudWatchLambda.py         # Lambda: multi-site health check, CloudWatch metrics
+│   └── websites.json               # List of websites to monitor
 ├── thomas_shewan_22080488/
-│   └── thomas_shewan_22080488_stack.py  # CDK stack definition
+│   ├── thomas_shewan_22080488_stack.py  # CDK stack definition
+│   └── cloudWatchStack.py               # CDK stack for Lambda + CloudWatch dashboard
 └── tests/
     └── unit/
         └── test_thomas_shewan_22080488_stack.py
@@ -125,8 +135,18 @@ Error detection:
 
 ## Configuration
 
-To monitor a different URL, modify `target_url` in `modules/MonitoringLambda.py`:
+### Monitoring Multiple Websites
+To monitor multiple URLs, edit `modules/websites.json`:
+```json
+{
+  "websites": [
+    {"name": "Google", "url": "https://www.google.com"},
+    {"name": "GitHub", "url": "https://github.com"}
+  ]
+}
+```
 
+For single-site monitoring, modify `target_url` in `modules/MonitoringLambda.py`:
 ```python
 target_url = "https://your-target-website.com"
 ```
@@ -141,3 +161,39 @@ This project meets the assignment requirements:
 - Implements industry-standard Golden Signals monitoring
 - Code managed in version control
 - Documentation provided in markdown
+
+# CloudWatchStack & Lambda Implementation
+
+## CloudWatchStack (`cloudWatchStack.py`)
+
+- Provisions a Lambda function with permissions to write metrics to CloudWatch.
+- Schedules the Lambda to run every 5 minutes using EventBridge.
+- Creates a CloudWatch dashboard with widgets for:
+  - Availability
+  - Latency (ms)
+  - Throughput (Bytes/sec)
+  - Content Length (Bytes)
+- Visualizes metrics for each website listed in `websites.json`.
+
+## Lambda Functions
+
+### `cloudWatchLambda.py`
+- Loads a list of websites from `websites.json`.
+- For each site, performs an HTTP request and measures:
+  - Availability (HTTP 200)
+  - Latency (ms)
+  - Throughput (Bytes/sec)
+  - Content Length (Bytes)
+- Publishes metrics to CloudWatch under the namespace `WebCrawler/Monitoring`.
+
+### `MonitoringLambda.py`
+- Monitors a single website (URL hardcoded as `target_url`).
+- Measures and returns:
+  - Availability
+  - Latency
+  - Throughput
+  - Response size
+- Prints metrics to logs and returns results in Lambda response.
+
+---
+For more details, see the code in `modules/cloudWatchLambda.py`, `modules/MonitoringLambda.py`, and `thomas_shewan_22080488/cloudWatchStack.py`.
