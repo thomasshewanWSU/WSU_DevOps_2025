@@ -1,143 +1,76 @@
-# AWS Lambda Canary Monitor
-
-Student: Thomas Shewan (22080488)  
-Course: WSU DevOps 2025
+# Web Health Monitoring System
 
 ## Overview
-
-This project implements a web health monitoring canary using AWS Lambda and CDK. The system monitors web resources and collects key performance metrics: availability, response latency, and data throughput.
+Automated web health monitoring system using AWS Lambda, CloudWatch, and EventBridge. Monitors website availability, latency, and throughput with real-time dashboards and alarms.
 
 ## Architecture
+- **AWS Lambda**: Health checks every 5 minutes
+- **EventBridge**: Scheduled Lambda execution
+- **CloudWatch**: Metrics storage, dashboards, and alarms
+- **CDK**: Infrastructure as code
 
-The solution uses AWS Lambda to perform HTTP health checks against target websites. The function is deployed using AWS CDK for infrastructure as code. Currently configured for manual triggering with automatic scheduling planned for future implementation.
+## Monitored Websites
+- Google (https://www.google.com)
+- Amazon (https://www.amazon.com) 
+- GitHub (https://www.github.com)
 
-## Metrics Collected
+## Metrics
+1. **Availability**: 1 = up, 0 = down
+2. **Latency**: Response time in milliseconds
+3. **Throughput**: Data transfer in bytes per second
 
-1. **Availability**: HTTP 200 response indicates service availability
-2. **Latency**: Response time measured in milliseconds
-3. **Throughput**: Data delivery rate in bytes per second (Traffic Golden Signal)
-4. **Response Size**: Content size for performance analysis
+## Dashboard
+CloudWatch dashboard "WebsiteHealthMonitoring" with 3 widgets:
+- Website Availability (all sites)
+- Response Time (all sites) 
+- Throughput (all sites)
 
-## Technical Implementation
+## Alarms
+9 total alarms (3 per website):
 
-- **Runtime**: Python 3.11
-- **HTTP Library**: urllib (built-in, no external dependencies)
-- **Infrastructure**: AWS CDK
-- **Deployment**: CloudFormation via CDK
-- **Monitoring**: Implements 3 of 4 Google SRE Golden Signals
+| Type | Threshold | Evaluation |
+|------|-----------|------------|
+| Availability | < 1 | 2 consecutive failures (10 min) |
+| Latency | > 5000ms | 2 out of 3 datapoints (15 min) |
+| Throughput | < 1000 bytes/sec | 2 out of 3 datapoints (15 min) |
 
 ## Project Structure
-
 ```
-ThomasShewan_22080488/
-├── app.py                          # CDK application entry point
-├── cdk.json                        # CDK configuration
-├── requirements.txt                # Dependencies
 ├── modules/
-│   └── MonitoringLambda.py                # Lambda function implementation
-├── thomas_shewan_22080488/
-│   └── thomas_shewan_22080488_stack.py  # CDK stack definition
-└── tests/
-    └── unit/
-        └── test_thomas_shewan_22080488_stack.py
+│   └── MonitoringLambda.py              # Lambda function
+├── thomas_shewan_22080488
+│   └── thomas_shewan_22080488_stack.py  # CDK infrastructure
+├── app.py                               # CDK entry point
+└── README.md                            # Documentation
 ```
 
-## Setup Instructions
-
-### Prerequisites
-
-- Python 3.11+
-- AWS CLI configured with appropriate permissions
-- Node.js and npm
-- AWS CDK CLI: `npm install -g aws-cdk`
-
-### Installation
-
-1. Create and activate virtual environment:
-
+## Deployment
 ```bash
-# Windows
-python -m venv venv
-.\venv\Scripts\Activate.ps1
+# Install dependencies
+pip install aws-cdk-lib constructs
 
-# macOS/Linux
-python -m venv .venv
-source .venv/bin/activate
-```
-
-2. Install dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-3. Bootstrap CDK (first time only):
-
-```bash
+# Bootstrap CDK (first time)
 cdk bootstrap
-```
 
-4. Deploy infrastructure:
-
-```bash
-cdk synth
+# Deploy
 cdk deploy
 ```
 
-## Testing
-
-### Manual Testing
-
-Test the deployed Lambda function through:
-
-- AWS Console: Lambda → MonitoringLambda → Test
-- AWS CLI: `aws lambda invoke --function-name MonitoringLambda output.json`
-
-## Sample Output
-
-Successful health check:
-
-```json
-{
-  "url": "https://b2c-application-web.vercel.app/",
-  "availability": true,
-  "latency_ms": 245.67,
-  "throughput_bps": 204081.63,
-  "response_size_bytes": 50000,
-  "status_code": 200,
-  "timestamp": 1722654712.123
-}
-```
-
-Error detection:
-
-```json
-{
-  "url": "https://b2c-application-web.vercel.app/",
-  "availability": false,
-  "latency_ms": 1500.45,
-  "throughput_bps": 0,
-  "status_code": 404,
-  "error": "HTTP 404: Not Found",
-  "timestamp": 1722654712.123
-}
-```
-
 ## Configuration
-
-To monitor a different URL, modify `target_url` in `modules/MonitoringLambda.py`:
-
+To add websites, modify the array in `MonitoringLambda.py`:
 ```python
-target_url = "https://your-target-website.com"
+websites = [
+    {"name": "Google", "url": "https://www.google.com"},
+    {"name": "NewSite", "url": "https://www.example.com"}
+]
 ```
 
-## Requirements Fulfilled
+## Monitoring
+- **Dashboard**: AWS Console → CloudWatch → Dashboards → "WebsiteHealthMonitoring"
+- **Alarms**: AWS Console → CloudWatch → Alarms
+- **Logs**: AWS Console → CloudWatch → Log Groups → /aws/lambda/MonitoringLambda
 
-This project meets the assignment requirements:
-
-- Uses AWS CDK to build a canary in Lambda function
-- Operates in single AWS region
-- Measures web resource metrics for monitoring
-- Implements industry-standard Golden Signals monitoring
-- Code managed in version control
-- Documentation provided in markdown
+## Troubleshooting
+- No metrics: Check Lambda execution logs
+- Alarms not working: Verify thresholds and evaluation periods
+- High costs: Monitor Free Tier usage limits
