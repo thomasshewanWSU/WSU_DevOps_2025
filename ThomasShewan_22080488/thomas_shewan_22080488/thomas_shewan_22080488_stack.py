@@ -1,13 +1,12 @@
 from aws_cdk import (
     Stack,
     Duration,
-    aws_lambda as _lambda,
+    aws_lambda as lambda_,
     aws_events as events,
     aws_events_targets as targets,
     aws_iam as iam,
     aws_cloudwatch as cloudwatch
 )
-import aws_cdk.aws_lambda as lambda_
 from constructs import Construct
 
 class ThomasShewan22080488Stack(Stack):
