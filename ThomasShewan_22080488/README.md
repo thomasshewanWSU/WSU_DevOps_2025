@@ -34,10 +34,20 @@ CloudWatch dashboard "WebsiteHealthMonitoring" with 3 widgets:
 | Latency | > 5000ms | 2 out of 3 datapoints (15 min) |
 | Throughput | < 1000 bytes/sec | 2 out of 3 datapoints (15 min) |
 
+## Alarm Notifications (SNS)
+All CloudWatch alarms are configured to publish notifications to an SNS topic (`AlarmNotificationTopic`). This enables integration with email, SMS, or other endpoints for real-time alerting.
+
+## Alarm Logging (DynamoDB)
+An AWS Lambda function (`AlarmLoggerLambda`) is subscribed to the SNS topic. When an alarm is triggered, the Lambda logs the alarm details to a DynamoDB table (`AlarmLogTable`). This provides a persistent record of all alarm events for auditing and troubleshooting.
+
+**Flow:**  
+CloudWatch Alarm → SNS Topic → Lambda Logger → DynamoDB Table
+
 ## Project Structure
 ```
 ├── modules/
 │   └── MonitoringLambda.py              # Lambda function
+│   └── AlarmLambda.py              # Lambda function
 ├── thomas_shewan_22080488
 │   └── thomas_shewan_22080488_stack.py  # CDK infrastructure
 ├── app.py                               # CDK entry point
