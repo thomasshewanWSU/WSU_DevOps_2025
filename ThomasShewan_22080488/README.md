@@ -1,86 +1,115 @@
 # Web Health Monitoring System
 
 ## Overview
-Automated web health monitoring system using AWS Lambda, CloudWatch, and EventBridge. Monitors website availability, latency, and throughput with real-time dashboards and alarms.
+Automated web health monitoring system using AWS Lambda, CloudWatch, and EventBridge. Monitors website availability, latency, and throughput with real-time dashboards, static SLO-style thresholds, and alarm logging.
 
 ## Architecture
 - **AWS Lambda**: Health checks every 5 minutes
-- **EventBridge**: Scheduled Lambda execution
-- **CloudWatch**: Metrics storage, dashboards, and alarms
+- **EventBridge**: Triggers monitoring Lambda
+- **CloudWatch**: Custom metrics, alarms, dashboard
+- **SNS**: Alarm notifications (email + Lambda subscriber)
+- **DynamoDB**: Persistent alarm log
 - **CDK**: Infrastructure as code
 
 ## Monitored Websites
+Configured via:
+- Environment variable `WEBSITES` (JSON array) OR
+- Default list in [`modules/constants.py`](modules/constants.py)
+
+Current defaults:
 - Google (https://www.google.com)
-- Amazon (https://www.amazon.com) 
+- Amazon (https://www.amazon.com)
 - GitHub (https://www.github.com)
 
 ## Metrics
-1. **Availability**: 1 = up, 0 = down
-2. **Latency**: Response time in milliseconds
-3. **Throughput**: Data transfer in bytes per second
+1. **Availability** (`Availability`): 1 = up, 0 = failure
+2. **Latency** (`Latency`): Milliseconds per request
+3. **Throughput** (`Throughput`): Bytes per second (response_size_bytes / request_time)
+
+Namespace: `WebMonitoring/Health`  
+Dimension: `Website`
 
 ## Dashboard
-CloudWatch dashboard "WebsiteHealthMonitoring" with 3 widgets:
-- Website Availability (all sites)
-- Response Time (all sites) 
+CloudWatch dashboard: `WebsiteHealthMonitoring`  
+Widgets:
+- Availability (all sites)
+- Latency (all sites)
 - Throughput (all sites)
 
-## Alarms
-9 total alarms (3 per website):
+## Static Alarm Thresholds (Per Site)
+Defined centrally in [`modules/constants.py`](modules/constants.py) under `THRESHOLDS`.
 
-| Type | Threshold | Evaluation |
-|------|-----------|------------|
-| Availability | < 1 | 2 consecutive failures (10 min) |
-| Latency | > 5000ms | 2 out of 3 datapoints (15 min) |
-| Throughput | < 1000 bytes/sec | 2 out of 3 datapoints (15 min) |
+| Site    | Latency > (ms) | Throughput < (B/s) |
+|---------|----------------|--------------------|
+| Google  | 1000           | 15000              |
+| Amazon  | 2000           | 90000              |
+| GitHub  | 1000           | 600000             |
+| Default (fallback) | 1500 | 200000 |
+
+Evaluation (all):
+- Period: 5 minutes
+- Breach: 2 of 2 consecutive periods (≈10 min)  
+Availability alarm: triggers when value < 1 (site down)  
+Latency alarm: triggers when average latency exceeds threshold  
+Throughput alarm: triggers when average throughput falls below threshold
+
+Rationale:
+Thresholds set ~50–60% below recent typical performance to detect material degradation without noise.
 
 ## Alarm Notifications (SNS)
-All CloudWatch alarms are configured to publish notifications to an SNS topic (`AlarmNotificationTopic`). This enables integration with email, SMS, or other endpoints for real-time alerting.
+All alarms publish to an SNS topic:
+- Email subscription (confirm via email on first deploy)
+- Lambda subscription: [`AlarmLambda.py`](modules/AlarmLambda.py) logs events to DynamoDB table `AlarmLogTable`
+
+Flow: CloudWatch Alarm → SNS Topic → Lambda (logger) → DynamoDB
 
 ## Alarm Logging (DynamoDB)
-An AWS Lambda function (`AlarmLoggerLambda`) is subscribed to the SNS topic. When an alarm is triggered, the Lambda logs the alarm details to a DynamoDB table (`AlarmLogTable`). This provides a persistent record of all alarm events for auditing and troubleshooting.
+Each alarm event stored with:
+- AlarmName
+- Timestamp (UTC ISO)
+- Raw Message JSON
 
-**Flow:**  
-CloudWatch Alarm → SNS Topic → Lambda Logger → DynamoDB Table
+Use for audit & trend analysis.
 
 ## Project Structure
 ```
 ├── modules/
-│   └── MonitoringLambda.py              # Lambda function
-│   └── AlarmLambda.py              # Lambda function
-├── thomas_shewan_22080488
-│   └── thomas_shewan_22080488_stack.py  # CDK infrastructure
-├── app.py                               # CDK entry point
-└── README.md                            # Documentation
+│   ├── MonitoringLambda.py        # Metric collection & publish
+│   ├── AlarmLambda.py             # Alarm event logger
+│   └── constants.py               # Shared config (metrics, sites, thresholds)
+├── thomas_shewan_22080488/
+│   └── thomas_shewan_22080488_stack.py  # CDK stack
+├── app.py                         # CDK entry point
+├── RUNBOOK.md                     # Operational procedures
+└── README.md
 ```
 
 ## Deployment
 ```bash
-# Install dependencies
-pip install aws-cdk-lib constructs
+# (Optional) create & activate venv
+python -m venv .venv
+source .venv/bin/activate
 
-# Bootstrap CDK (first time)
+pip install -r requirements.txt
+
+# First time
 cdk bootstrap
+
+# Synthesize & review
+cdk diff
 
 # Deploy
 cdk deploy
 ```
 
-## Configuration
-To add websites, modify the array in `MonitoringLambda.py`:
-```python
-websites = [
-    {"name": "Google", "url": "https://www.google.com"},
-    {"name": "NewSite", "url": "https://www.example.com"}
-]
-```
-
 ## Monitoring
-- **Dashboard**: AWS Console → CloudWatch → Dashboards → "WebsiteHealthMonitoring"
-- **Alarms**: AWS Console → CloudWatch → Alarms
-- **Logs**: AWS Console → CloudWatch → Log Groups → /aws/lambda/MonitoringLambda
+- Dashboard: CloudWatch → Dashboards → `WebsiteHealthMonitoring`
+- Alarms: CloudWatch → Alarms
+- Logs: CloudWatch Logs → `/aws/lambda/MonitoringLambda`
+- Alarm history: DynamoDB → `AlarmLogTable`
 
-## Troubleshooting
-- No metrics: Check Lambda execution logs
-- Alarms not working: Verify thresholds and evaluation periods
-- High costs: Monitor Free Tier usage limits
+## Operational Notes
+See [`RUNBOOK.md`](RUNBOOK.md) for response steps (availability, high latency, low throughput).
+
+---
+Last updated: Static per-site thresholds restored (replacing prior experimental dynamic alarms).

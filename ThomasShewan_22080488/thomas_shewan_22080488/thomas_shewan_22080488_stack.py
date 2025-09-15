@@ -1,3 +1,4 @@
+import json
 from aws_cdk import (
     Stack,
     Duration,
@@ -14,6 +15,17 @@ from aws_cdk import (
 )
 from constructs import Construct
 
+from modules.constants import (
+    METRIC_NAMESPACE,
+    METRIC_AVAILABILITY,
+    METRIC_LATENCY,
+    METRIC_THROUGHPUT,
+    DIM_WEBSITE,
+    DEFAULT_WEBSITES,
+    ENV_WEBSITES,
+    get_site_threshold,
+)
+
 class ThomasShewan22080488Stack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -25,7 +37,10 @@ class ThomasShewan22080488Stack(Stack):
             handler="MonitoringLambda.lambda_handler",
             code=lambda_.Code.from_asset("./modules"),
             timeout=Duration.seconds(60), 
-            description="Web health monitoring canary - crawls multiple websites"
+            description="Web health monitoring canary - crawls multiple websites",
+            environment={
+                ENV_WEBSITES: json.dumps(DEFAULT_WEBSITES)
+            }
         )
         
         # CloudWatch permissions to Lambda
@@ -72,6 +87,9 @@ class ThomasShewan22080488Stack(Stack):
         alarm_topic.add_subscription(
             subscriptions.LambdaSubscription(alarm_logger_lambda)
         )
+        alarm_topic.add_subscription(
+            subscriptions.EmailSubscription("22080488@student.westernsydney.edu.au")
+        )
         # EventBridge rule to trigger Lambda every 5 minutes
         monitoring_rule = events.Rule(
             self, "MonitoringScheduleRule",
@@ -90,18 +108,18 @@ class ThomasShewan22080488Stack(Stack):
             dashboard_name="WebsiteHealthMonitoring"
         )
         
-        websites = ["Google", "Amazon", "GitHub"]
-        
+        websites = [w["name"] for w in DEFAULT_WEBSITES]
+
         availability_metrics = []
         latency_metrics = []
         throughput_metrics = []
-        
+
         for website in websites:
             metrics = self.create_website_monitoring(website, dashboard, alarm_topic)
             availability_metrics.append(metrics['availability'])
             latency_metrics.append(metrics['latency'])
             throughput_metrics.append(metrics['throughput'])
-        
+
         # dashboard widgets
         dashboard.add_widgets(
             # Availability widget
@@ -115,7 +133,7 @@ class ThomasShewan22080488Stack(Stack):
                     max=1.1
                 )
             ),
-            
+
             # Latency widget
             cloudwatch.GraphWidget(
                 title="Response Time - All Websites (ms)",
@@ -126,7 +144,7 @@ class ThomasShewan22080488Stack(Stack):
                     min=0
                 )
             ),
-            
+
             # Throughput widget
             cloudwatch.GraphWidget(
                 title="Throughput - All Websites (bytes/sec)",
@@ -138,7 +156,7 @@ class ThomasShewan22080488Stack(Stack):
                 )
             )
         )
-        
+
         print(f"Created monitoring Lambda: {canary_lambda.function_name}")
         print("Lambda will be triggered every 5 minutes via EventBridge")
         print(f"CloudWatch Dashboard: {dashboard.dashboard_name}")
@@ -148,25 +166,25 @@ class ThomasShewan22080488Stack(Stack):
         """Create monitoring setup for a single website"""
         
         availability_metric = cloudwatch.Metric(
-            namespace="WebMonitoring/Health",
-            metric_name="Availability",
-            dimensions_map={"Website": website_name},
+            namespace=METRIC_NAMESPACE,
+            metric_name=METRIC_AVAILABILITY,
+            dimensions_map={DIM_WEBSITE: website_name},
             statistic="Average",
             period=Duration.minutes(5)
         )
         
         latency_metric = cloudwatch.Metric(
-            namespace="WebMonitoring/Health",
-            metric_name="Latency",
-            dimensions_map={"Website": website_name},
+            namespace=METRIC_NAMESPACE,
+            metric_name=METRIC_LATENCY,
+            dimensions_map={DIM_WEBSITE: website_name},
             statistic="Average",
             period=Duration.minutes(5)
         )
         
         throughput_metric = cloudwatch.Metric(
-            namespace="WebMonitoring/Health",
-            metric_name="Throughput",
-            dimensions_map={"Website": website_name},
+            namespace=METRIC_NAMESPACE,
+            metric_name=METRIC_THROUGHPUT,
+            dimensions_map={DIM_WEBSITE: website_name},
             statistic="Average",
             period=Duration.minutes(5)
         )
@@ -185,13 +203,14 @@ class ThomasShewan22080488Stack(Stack):
         )
         availability_alarm.add_alarm_action(cloudwatch_actions.SnsAction(alarm_topic))
 
-        # Latency Alarm (alert when response time > 5000ms)
+        # Latency Alarm 
+        site_thresholds = get_site_threshold(website_name)
         latency_alarm = cloudwatch.Alarm(
             self, f"{website_name}LatencyAlarm",
             alarm_name=f"{website_name}-Latency-Alarm", 
-            alarm_description=f"Alert when {website_name} response time exceeds 5000ms",
+            alarm_description=f"Alert when {website_name} average latency exceeds {site_thresholds['latency_ms']}ms",
             metric=latency_metric,
-            threshold=5000,  
+            threshold=site_thresholds['latency_ms'],  
             comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
             evaluation_periods=3,  
             datapoints_to_alarm=2,  
@@ -199,13 +218,13 @@ class ThomasShewan22080488Stack(Stack):
         )
         latency_alarm.add_alarm_action(cloudwatch_actions.SnsAction(alarm_topic))
 
-        # Throughput Alarm (alert when throughput drops below threshold)
+        # Throughput Alarm
         throughput_alarm = cloudwatch.Alarm(
             self, f"{website_name}ThroughputAlarm",
             alarm_name=f"{website_name}-Throughput-Alarm",
-            alarm_description=f"Alert when {website_name} throughput drops below 1000 bytes/sec",
+            alarm_description=f"Alert when {website_name} throughput drops below {site_thresholds['throughput_bytes_per_sec_min']} bytes/sec",
             metric=throughput_metric,
-            threshold=1000,  
+            threshold=site_thresholds['throughput_bytes_per_sec_min'],  
             comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
             evaluation_periods=3,  
             datapoints_to_alarm=2,  
