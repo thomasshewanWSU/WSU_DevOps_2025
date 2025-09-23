@@ -23,8 +23,9 @@ class PipelineStack(Stack):
             commands=[
                 "cd ThomasShewan_22080488", 
                 "npm install -g aws-cdk",
-                "pip install aws-cdk.pipelines",
-                "pip install -r requirements.txt",
+                "python -m pip install --upgrade pip",
+                "python -m pip install aws-cdk.pipelines",
+                "python -m pip install -r requirements.txt",
                 "cdk synth"
             ],
             primary_output_directory="ThomasShewan_22080488/cdk.out"
@@ -40,8 +41,9 @@ class PipelineStack(Stack):
             "UnitTests",
             input=source,
             commands=["cd ThomasShewan_22080488",
-                      "pip install -r requirements-dev.txt",
-                      "pytest"]
+                      "python -m pip install --upgrade pip",
+                      "python -m pip install -r requirements-dev.txt",
+                      "python -m pytest -q"]
         )
 
 

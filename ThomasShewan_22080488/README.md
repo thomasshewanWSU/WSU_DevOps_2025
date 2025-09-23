@@ -11,6 +11,26 @@ Automated web health monitoring system using AWS Lambda, CloudWatch, and EventBr
 - **DynamoDB**: Persistent alarm log
 - **CDK**: Infrastructure as code
 
+
+## CI/CD Pipeline
+- Stack definition: [thomas_shewan_22080488/pipeline_stack.py](thomas_shewan_22080488/pipeline_stack.py), [thomas_shewan_22080488/pipeline_stage.py](thomas_shewan_22080488/pipeline_stage.py)
+- Source: GitHub repository `thomasshewanWSU/WSU_DevOps_2025` (main branch)
+- Authentication: AWS Secrets Manager secret `github-token` with scopes: `repo`, `admin:repo_hook`
+- Build (synth) commands:
+  - cd ThomasShewan_22080488
+  - npm install -g aws-cdk
+  - pip install aws-cdk.pipelines
+  - pip install -r requirements.txt
+  - cdk synth
+- Tests: runs `pytest` from [tests/unit](tests/unit) (see [tests/unit/test_thomas_shewan_22080488_stack.py](tests/unit/test_thomas_shewan_22080488_stack.py))
+- Stages:
+  - Manual approval gate
+  - Deploys alpha stage: `alpha-ThomasShewan22080488Stack` (from [thomas_shewan_22080488/thomas_shewan_22080488_stack.py](thomas_shewan_22080488/thomas_shewan_22080488_stack.py))
+- Triggers:
+  - Push to `main` starts the pipeline
+  - Can also start from AWS CodePipeline console
+
+
 ## Monitored Websites
 Configured via:
 - Environment variable `WEBSITES` (JSON array) OR
@@ -74,32 +94,47 @@ Use for audit & trend analysis.
 ## Project Structure
 ```
 ├── modules/
-│   ├── MonitoringLambda.py        # Metric collection & publish
-│   ├── AlarmLambda.py             # Alarm event logger
-│   └── constants.py               # Shared config (metrics, sites, thresholds)
+│   ├── MonitoringLambda.py
+│   ├── AlarmLambda.py
+│   └── constants.py
 ├── thomas_shewan_22080488/
-│   └── thomas_shewan_22080488_stack.py  # CDK stack
-├── app.py                         # CDK entry point
-├── RUNBOOK.md                     # Operational procedures
+│   ├── pipeline_stack.py
+│   ├── pipeline_stage.py
+│   └── thomas_shewan_22080488_stack.py
+├── tests/
+│   └── unit/
+│       └── test_thomas_shewan_22080488_stack.py
+├── app.py
+├── RUNBOOK.md
 └── README.md
 ```
 
 ## Deployment
+
+### Pipeline (recommended)
+Prereqs:
+- Secrets Manager: `github-token` (scopes: `repo`, `admin:repo_hook`)
+- Region: `ap-southeast-2`
+
+Commands:
 ```bash
-# (Optional) create & activate venv
-python -m venv .venv
-source .venv/bin/activate
-
-pip install -r requirements.txt
-
-# First time
+# First time per account/region
 cdk bootstrap
 
-# Synthesize & review
-cdk diff
+# Deploy pipeline infrastructure
+npx cdk deploy WebMonitoringPipelineStack
 
-# Deploy
-cdk deploy
+# Push changes to trigger pipeline
+git push origin main
+```
+Review/approve the Manual Approval step in CodePipeline.
+
+### Manual (legacy)
+```bash
+pip install -r requirements.txt
+cdk bootstrap
+cdk diff
+cdk deploy ThomasShewan22080488Stack
 ```
 
 ## Monitoring
@@ -110,6 +145,3 @@ cdk deploy
 
 ## Operational Notes
 See [`RUNBOOK.md`](RUNBOOK.md) for response steps (availability, high latency, low throughput).
-
----
-Last updated: Static per-site thresholds restored (replacing prior experimental dynamic alarms).
