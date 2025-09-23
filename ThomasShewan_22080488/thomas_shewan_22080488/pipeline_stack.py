@@ -1,39 +1,31 @@
 from aws_cdk import (
     Stack,
     Stage,
-    aws_cdk as cdk,
+    SecretValue,
     pipelines
 )
 from constructs import Construct
-from .thomas_shewan_22080488_stack import ThomasShewan22080488Stack
-
-class MonitoringStage(Stage):
-    """Stage that contains the monitoring stack"""
-    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
-        super().__init__(scope, construct_id, **kwargs)
-        
-        ThomasShewan22080488Stack(self, "ThomasShewan22080488Stack")
+from .pipeline_stage import MyPipelineStage
 
 class PipelineStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
         
         source = pipelines.CodePipelineSource.git_hub(
-            repo_string="Thomas_Shewan_WSU/WSU_DevOps_2025",  
+            repo_string="thomasshewanWSU/WSU_DevOps_2025",  
             branch="main",
-            authentication=cdk.SecretValue.secrets_manager("github-token"),
+            authentication=SecretValue.secrets_manager("github-token"),
         )
         
         synth_step = pipelines.ShellStep(
-            "Synth",
+            "CodeBuild",
             input=source,
-            install_commands=[
-                "cd ThomasShewan_22080488",
-                "pip install -r requirements.txt"
-            ],
             commands=[
                 "cd ThomasShewan_22080488", 
-                "npx cdk synth"
+                "npm install -g aws-cdk",
+                "pip install aws-cdk.pipelines",
+                "pip install -r requirements.txt",
+                "cdk synth"
             ],
             primary_output_directory="ThomasShewan_22080488/cdk.out"
         )
@@ -41,16 +33,19 @@ class PipelineStack(Stack):
         pipeline = pipelines.CodePipeline(
             self, "MonitoringPipeline",
             pipeline_name="WebMonitoringPipeline",
-            synth=synth_step,
-            cross_account_keys=False
+            synth=synth_step
         )
         
-        dev_stage = MonitoringStage(
-            self, "Dev",
-            env=cdk.Environment(
-                account=self.account,
-                region="ap-southeast-2"
-            )
+        unit_test = pipelines.ShellStep( 
+            "UnitTests",
+            input=source,
+            commands=["cd ThomasShewan_22080488",
+                      "pip install -r requirements-dev.txt",
+                      "pytest"]
         )
-        
-        pipeline.add_stage(dev_stage)
+
+
+        alpha = MyPipelineStage(self, 'alpha')
+        pipeline.add_stage(alpha, pre=[unit_test, pipelines.ManualApprovalStep("Approve-Deploy-To-Alpha")])
+
+    

@@ -3,7 +3,7 @@ import os
 
 import aws_cdk as cdk
 
-from thomas_shewan_22080488.thomas_shewan_22080488_stack import PipelineStack
+from thomas_shewan_22080488.pipeline_stack import PipelineStack  
 
 
 app = cdk.App()
