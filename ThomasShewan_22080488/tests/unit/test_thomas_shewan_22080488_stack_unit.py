@@ -5,7 +5,7 @@ from thomas_shewan_22080488.thomas_shewan_22080488_stack import ThomasShewan2208
 from unittest.mock import patch
 import json
 from modules.CRUDLambda import lambda_handler as CrudLambda
-
+import os
 os.environ['TARGETS_TABLE_NAME'] = 'test-table'
 os.environ['AWS_DEFAULT_REGION'] = 'ap-southeast-2'
 
