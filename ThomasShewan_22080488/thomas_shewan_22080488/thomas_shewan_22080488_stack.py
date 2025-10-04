@@ -12,7 +12,6 @@ from aws_cdk import (
     aws_sns_subscriptions as subscriptions,
     aws_dynamodb as dynamodb,
     aws_cloudwatch_actions as cloudwatch_actions,
-    aws_codedeploy as codedeploy,
 )
 from constructs import Construct
 
