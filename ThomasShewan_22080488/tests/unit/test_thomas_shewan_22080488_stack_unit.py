@@ -6,6 +6,10 @@ from unittest.mock import patch
 import json
 from modules.CRUDLambda import lambda_handler as CrudLambda
 
+os.environ['TARGETS_TABLE_NAME'] = 'test-table'
+os.environ['AWS_DEFAULT_REGION'] = 'ap-southeast-2'
+
+
 @pytest.fixture
 def stack():
     app = cdk.App()
@@ -63,7 +67,8 @@ def test_cloudwatch_alarms_created(template):
 
 # CRUD Tests
 
-def test_create_target_success():
+@patch('modules.CRUDLambda.table')
+def test_create_target_success(mock_table):
     """Test successful target creation"""
     event = {
         'httpMethod': 'POST',
@@ -74,33 +79,33 @@ def test_create_target_success():
         })
     }
     
-    with patch('CrudLambda.table') as mock_table:
-        mock_table.put_item.return_value = {}
-        response = CrudLambda.lambda_handler(event, {})
-        
-        assert response['statusCode'] == 201
-        body = json.loads(response['body'])
-        assert body['name'] == 'TestSite'
-        assert 'TargetId' in body
+    mock_table.put_item.return_value = {}
+    response = CrudLambda(event, {})
+    
+    assert response['statusCode'] == 201
+    body = json.loads(response['body'])
+    assert body['name'] == 'TestSite'
+    assert 'TargetId' in body
 
-def test_list_targets():
+@patch('modules.CRUDLambda.table')
+def test_list_targets(mock_table):
     """Test listing all targets"""
     event = {
         'httpMethod': 'GET',
         'path': '/targets'
     }
     
-    with patch('CrudLambda.table') as mock_table:
-        mock_table.scan.return_value = {
-            'Items': [{'TargetId': '123', 'name': 'Test', 'url': 'https://test.com'}]
-        }
-        response = CrudLambda.lambda_handler(event, {})
-        
-        assert response['statusCode'] == 200
-        body = json.loads(response['body'])
-        assert body['count'] == 1
+    mock_table.scan.return_value = {
+        'Items': [{'TargetId': '123', 'name': 'Test', 'url': 'https://test.com'}]
+    }
+    response = CrudLambda(event, {})
+    
+    assert response['statusCode'] == 200
+    body = json.loads(response['body'])
+    assert body['count'] == 1
 
-def test_update_target():
+@patch('modules.CRUDLambda.table')
+def test_update_target(mock_table):
     """Test updating a target"""
     event = {
         'httpMethod': 'PUT',
@@ -109,16 +114,16 @@ def test_update_target():
         'body': json.dumps({'name': 'Updated'})
     }
     
-    with patch('CrudLambda.table') as mock_table:
-        mock_table.get_item.return_value = {'Item': {'TargetId': '123'}}
-        mock_table.update_item.return_value = {
-            'Attributes': {'TargetId': '123', 'name': 'Updated'}
-        }
-        response = CrudLambda.lambda_handler(event, {})
-        
-        assert response['statusCode'] == 200
+    mock_table.get_item.return_value = {'Item': {'TargetId': '123'}}
+    mock_table.update_item.return_value = {
+        'Attributes': {'TargetId': '123', 'name': 'Updated'}
+    }
+    response = CrudLambda(event, {})
+    
+    assert response['statusCode'] == 200
 
-def test_delete_target():
+@patch('modules.CRUDLambda.table')
+def test_delete_target(mock_table):
     """Test deleting a target"""
     event = {
         'httpMethod': 'DELETE',
@@ -126,9 +131,8 @@ def test_delete_target():
         'pathParameters': {'id': '123'}
     }
     
-    with patch('CrudLambda.table') as mock_table:
-        mock_table.get_item.return_value = {'Item': {'TargetId': '123'}}
-        mock_table.delete_item.return_value = {}
-        response = CrudLambda.lambda_handler(event, {})
-        
-        assert response['statusCode'] == 200
+    mock_table.get_item.return_value = {'Item': {'TargetId': '123'}}
+    mock_table.delete_item.return_value = {}
+    response = CrudLambda(event, {})
+    
+    assert response['statusCode'] == 200
