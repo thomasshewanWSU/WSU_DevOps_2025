@@ -53,7 +53,10 @@ class ThomasShewan22080488Stack(Stack):
                 iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AmazonAPIGatewayPushToCloudWatchLogs")
             ]
         )
-
+        apigateway.CfnAccount(
+            self, "ApiGatewayAccount",
+            cloud_watch_role_arn=api_log_role.role_arn
+        )
         # CRUD Lambda Function ------------------------
         # Lambda function to handle Create, Read, Update, Delete operations
         # Lambda Function: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_lambda/Function.html
