@@ -384,61 +384,83 @@ class ThomasShewan22080488Stack(Stack):
         # Website Monitoring Setup-----------------------------
         # Create metrics and alarms for each monitored website
         # This section processes all configured websites and sets up monitoring
-        
-        # Extract website names from configuration
-        websites = [w["name"] for w in DEFAULT_WEBSITES]
 
-        # Lists to collect metrics from all websites for aggregate dashboard widgets
-        availability_metrics = []
-        latency_metrics = []
-        throughput_metrics = []
-
-        # Loop through each website and create monitoring resources
-        for website in websites:
-            metrics = self.create_website_monitoring(website, dashboard, alarm_topic)
-            availability_metrics.append(metrics['availability'])
-            latency_metrics.append(metrics['latency'])
-            throughput_metrics.append(metrics['throughput'])
 
         # Aggregate Dashboard -----------------------
         # Create dashboard widgets that show metrics for all websites combined
         
+        # dashboard.add_widgets(
+        #     # Availability widget - shows uptime status for all monitored sites
+        #     cloudwatch.GraphWidget(
+        #         title="Website Availability (All Sites)",
+        #         left=availability_metrics,
+        #         width=12,
+        #         height=6,
+        #         left_y_axis=cloudwatch.YAxisProps(
+        #             min=0,
+        #             max=1.1  # 0 = down, 1 = up
+        #         )
+        #     ),
+
+        #     # Latency widget - shows response time for all monitored sites
+        #     cloudwatch.GraphWidget(
+        #         title="Response Time - All Websites (ms)",
+        #         left=latency_metrics,
+        #         width=12,
+        #         height=6,
+        #         left_y_axis=cloudwatch.YAxisProps(
+        #             min=0
+        #         )
+        #     ),
+
+        #     # Throughput widget - shows data transfer rate for all monitored sites
+        #     cloudwatch.GraphWidget(
+        #         title="Throughput - All Websites (bytes/sec)",
+        #         left=throughput_metrics,
+        #         width=12,
+        #         height=6,
+        #         left_y_axis=cloudwatch.YAxisProps(
+        #             min=0
+        #         )
+        #     )
+        # )
         dashboard.add_widgets(
-            # Availability widget - shows uptime status for all monitored sites
-            cloudwatch.GraphWidget(
-                title="Website Availability (All Sites)",
-                left=availability_metrics,
-                width=12,
-                height=6,
-                left_y_axis=cloudwatch.YAxisProps(
-                    min=0,
-                    max=1.1  # 0 = down, 1 = up
-                )
-            ),
+            # Info widget explaining the CRUD API approach
+            cloudwatch.TextWidget(
+                markdown="""
+# Web Monitoring Dashboard
 
-            # Latency widget - shows response time for all monitored sites
-            cloudwatch.GraphWidget(
-                title="Response Time - All Websites (ms)",
-                left=latency_metrics,
-                width=12,
-                height=6,
-                left_y_axis=cloudwatch.YAxisProps(
-                    min=0
-                )
-            ),
+This dashboard shows operational metrics for the CRUD API-driven monitoring system.
 
-            # Throughput widget - shows data transfer rate for all monitored sites
-            cloudwatch.GraphWidget(
-                title="Throughput - All Websites (bytes/sec)",
-                left=throughput_metrics,
-                width=12,
-                height=6,
-                left_y_axis=cloudwatch.YAxisProps(
-                    min=0
-                )
+## Using the CRUD API
+
+**API Endpoint**: Use the CloudFormation output `ApiUrl`
+
+### API Operations:
+- **List targets**: `GET /targets` (with x-api-key header)
+- **Add target**: `POST /targets` with `{"name": "...", "url": "..."}`
+- **Update target**: `PUT /targets/{id}` with fields to update
+- **Delete target**: `DELETE /targets/{id}`
+
+### Viewing Metrics:
+- Website metrics appear in CloudWatch under namespace `WebMonitoring/Health`
+- Each site gets metrics with `Website` dimension
+- Metrics: `Availability`, `Latency`, `Throughput`
+
+### API Key:
+Use CloudFormation output `ApiKeyId` to get the actual key value:
+```bash
+aws apigateway get-api-key --api-key <ApiKeyId> --include-value --query 'value' --output text
+```
+
+## Lambda Operational Metrics
+
+The widgets below show the health of the monitoring Lambda itself:
+""",
+                width=24,
+                height=8
             )
         )
-
         # Output deployment information
         print(f"Created monitoring Lambda: {canary_lambda.function_name}")
         print("Lambda will be triggered every 5 minutes via EventBridge")

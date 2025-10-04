@@ -24,12 +24,18 @@ def lambda_handler(event, context):
     
     targets = get_targets_from_dynamodb()
     
-    # Fallback 
+    # Only use DynamoDB targets 
     if not targets:
-        print("No targets in DynamoDB, using defaults from environment")
-        targets = load_websites()
-    else:
-        print(f"Loaded {len(targets)} targets from DynamoDB")
+        print("No targets found in DynamoDB - nothing to monitor")
+        return {
+            'statusCode': 200,
+            'body': json.dumps({
+                'message': 'No targets configured for monitoring',
+                'results': []
+            })
+        }
+    
+    print(f"Loaded {len(targets)} targets from DynamoDB")
     
     all_results = []
     
