@@ -4,6 +4,7 @@ import pytest
 from thomas_shewan_22080488.thomas_shewan_22080488_stack import ThomasShewan22080488Stack
 
 
+@pytest.fixture
 def stack():
     app = cdk.App()
     return ThomasShewan22080488Stack(app, "thomas-shewan-22080488")
@@ -13,9 +14,7 @@ def stack():
 def template(stack):
     return assertions.Template.from_stack(stack)
 
-@pytest.fixture
 def test_lambda_functions_created(template):
-    return assertions.Template.from_stack(stack)
     """Both Lambda functions should be created"""
     template.resource_count_is("AWS::Lambda::Function", 2)
 
