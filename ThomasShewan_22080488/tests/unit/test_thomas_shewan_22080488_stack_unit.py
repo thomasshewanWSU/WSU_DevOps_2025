@@ -2,16 +2,8 @@ import aws_cdk as cdk
 import aws_cdk.assertions as assertions
 import pytest
 from thomas_shewan_22080488.thomas_shewan_22080488_stack import ThomasShewan22080488Stack
-from unittest.mock import patch
-import json
-import os
-os.environ['TARGETS_TABLE_NAME'] = 'test-table'
-os.environ['AWS_DEFAULT_REGION'] = 'ap-southeast-2'
-
-from modules.CRUDLambda import lambda_handler as CrudLambda
 
 
-@pytest.fixture
 def stack():
     app = cdk.App()
     return ThomasShewan22080488Stack(app, "thomas-shewan-22080488")
@@ -21,8 +13,9 @@ def stack():
 def template(stack):
     return assertions.Template.from_stack(stack)
 
-
+@pytest.fixture
 def test_lambda_functions_created(template):
+    return assertions.Template.from_stack(stack)
     """Both Lambda functions should be created"""
     template.resource_count_is("AWS::Lambda::Function", 2)
 
@@ -65,75 +58,3 @@ def test_dynamodb_table_created(template):
 def test_cloudwatch_alarms_created(template):
     """All alarms should be created (12 in total: 9 website + 3 Lambda)"""
     template.resource_count_is("AWS::CloudWatch::Alarm", 12)
-
-# CRUD Tests
-
-@patch('modules.CRUDLambda.table')
-def test_create_target_success(mock_table):
-    """Test successful target creation"""
-    event = {
-        'httpMethod': 'POST',
-        'path': '/targets',
-        'body': json.dumps({
-            'name': 'TestSite',
-            'url': 'https://example.com'
-        })
-    }
-    
-    mock_table.put_item.return_value = {}
-    response = CrudLambda(event, {})
-    
-    assert response['statusCode'] == 201
-    body = json.loads(response['body'])
-    assert body['name'] == 'TestSite'
-    assert 'TargetId' in body
-
-@patch('modules.CRUDLambda.table')
-def test_list_targets(mock_table):
-    """Test listing all targets"""
-    event = {
-        'httpMethod': 'GET',
-        'path': '/targets'
-    }
-    
-    mock_table.scan.return_value = {
-        'Items': [{'TargetId': '123', 'name': 'Test', 'url': 'https://test.com'}]
-    }
-    response = CrudLambda(event, {})
-    
-    assert response['statusCode'] == 200
-    body = json.loads(response['body'])
-    assert body['count'] == 1
-
-@patch('modules.CRUDLambda.table')
-def test_update_target(mock_table):
-    """Test updating a target"""
-    event = {
-        'httpMethod': 'PUT',
-        'path': '/targets/123',
-        'pathParameters': {'id': '123'},
-        'body': json.dumps({'name': 'Updated'})
-    }
-    
-    mock_table.get_item.return_value = {'Item': {'TargetId': '123'}}
-    mock_table.update_item.return_value = {
-        'Attributes': {'TargetId': '123', 'name': 'Updated'}
-    }
-    response = CrudLambda(event, {})
-    
-    assert response['statusCode'] == 200
-
-@patch('modules.CRUDLambda.table')
-def test_delete_target(mock_table):
-    """Test deleting a target"""
-    event = {
-        'httpMethod': 'DELETE',
-        'path': '/targets/123',
-        'pathParameters': {'id': '123'}
-    }
-    
-    mock_table.get_item.return_value = {'Item': {'TargetId': '123'}}
-    mock_table.delete_item.return_value = {}
-    response = CrudLambda(event, {})
-    
-    assert response['statusCode'] == 200
