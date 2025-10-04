@@ -386,43 +386,31 @@ class ThomasShewan22080488Stack(Stack):
             treat_missing_data=cloudwatch.TreatMissingData.BREACHING  # Missing data = alarm
         )
         availability_alarm.add_alarm_action(cloudwatch_actions.SnsAction(alarm_topic))
-
-        # Latency Alarm with Anomaly Detection
-        latency_anomaly_expression = cloudwatch.MathExpression(
-            expression="ANOMALY_DETECTION_BAND(m1, 2)",
-            using_metrics={"m1": latency_metric},
-            label=f"{website_name} Latency Anomaly Band"
-        )
         
-        latency_alarm = cloudwatch.Alarm(
+        # Latency Alarm with Anomaly Detection
+        latency_alarm = cloudwatch.AnomalyDetectionAlarm(
             self, f"{website_name}LatencyAlarm",
             alarm_name=f"{website_name}-Latency-Alarm", 
             alarm_description=f"Alert when {website_name} latency is anomalous (outside 2 standard deviations)",
-            metric=latency_anomaly_expression,
-            threshold=0,
-            comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_LOWER_THRESHOLD,
+            metric=latency_metric,
             evaluation_periods=3,
             datapoints_to_alarm=2,
+            std_devs=2,  # 2 standard deviations from normal
+            comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_LOWER_OR_GREATER_THAN_UPPER_THRESHOLD,
             treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING
         )
         latency_alarm.add_alarm_action(cloudwatch_actions.SnsAction(alarm_topic))
 
         # Throughput Alarm with Anomaly Detection
-        throughput_anomaly_expression = cloudwatch.MathExpression(
-            expression="ANOMALY_DETECTION_BAND(m1, 2)",
-            using_metrics={"m1": throughput_metric},
-            label=f"{website_name} Throughput Anomaly Band"
-        )
-        
-        throughput_alarm = cloudwatch.Alarm(
+        throughput_alarm = cloudwatch.AnomalyDetectionAlarm(
             self, f"{website_name}ThroughputAlarm",
             alarm_name=f"{website_name}-Throughput-Alarm",
             alarm_description=f"Alert when {website_name} throughput is anomalous (outside 2 standard deviations)",
-            metric=throughput_anomaly_expression,
-            threshold=0,
-            comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_LOWER_THRESHOLD,
+            metric=throughput_metric,
             evaluation_periods=3,
             datapoints_to_alarm=2,
+            std_devs=2,  # 2 standard deviations from normal
+            comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_LOWER_OR_GREATER_THAN_UPPER_THRESHOLD,
             treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING
         )
         throughput_alarm.add_alarm_action(cloudwatch_actions.SnsAction(alarm_topic))
