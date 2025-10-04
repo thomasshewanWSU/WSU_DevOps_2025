@@ -45,6 +45,15 @@ class ThomasShewan22080488Stack(Stack):
             table_name="WebMonitoringTargets"
         )
 
+        # Create IAM Role for API Gateway logging
+        api_log_role = iam.Role(
+            self, "ApiGatewayCloudWatchLogsRole",
+            assumed_by=iam.ServicePrincipal("apigateway.amazonaws.com"),
+            managed_policies=[
+                iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AmazonAPIGatewayPushToCloudWatchLogs")
+            ]
+        )
+
         # CRUD Lambda Function ------------------------
         # Lambda function to handle Create, Read, Update, Delete operations
         # Lambda Function: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_lambda/Function.html
@@ -72,14 +81,17 @@ class ThomasShewan22080488Stack(Stack):
             self, "TargetsApi",
             rest_api_name="WebCrawlerTargetsAPI",
             description="CRUD API for managing web monitoring targets",
-            deploy_options=apigateway.StageOptions(  # Stage options: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_apigateway/StageOptions.html
+            deploy_options=apigateway.StageOptions(
                 stage_name="prod",
-                metrics_enabled=True,  # Enable CloudWatch metrics
-                logging_level=apigateway.MethodLoggingLevel.INFO  # Logging level: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_apigateway/MethodLoggingLevel.html
+                metrics_enabled=True,
+                logging_level=apigateway.MethodLoggingLevel.INFO,
+                data_trace_enabled=True,
+                tracing_enabled=True,
+                # Assign the CloudWatch Logs role
+                cloud_watch_role=apigw_log_role
             ),
-            # Enable CORS for web access: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_apigateway/CorsOptions.html
             default_cors_preflight_options=apigateway.CorsOptions(
-                allow_origins=apigateway.Cors.ALL_ORIGINS,  # CORS constants: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_apigateway/Cors.html
+                allow_origins=apigateway.Cors.ALL_ORIGINS,
                 allow_methods=apigateway.Cors.ALL_METHODS
             )
         )
