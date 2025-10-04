@@ -3,7 +3,6 @@ Integration Tests for Web Monitoring System
 Tests the complete end-to-end workflow of the monitoring system
 """
 import boto3
-import json
 import pytest
 
 

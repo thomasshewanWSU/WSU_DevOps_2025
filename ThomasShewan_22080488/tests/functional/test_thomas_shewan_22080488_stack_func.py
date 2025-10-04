@@ -1,6 +1,6 @@
 """
 Functional Tests for Web Monitoring Lambda
-Tests the behavior of the Lambda function in a deployed environment
+Tests the behavior of the Lambda function in a deployed environment.
 """
 import boto3
 import pytest
