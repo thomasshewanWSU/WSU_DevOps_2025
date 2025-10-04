@@ -103,6 +103,20 @@ class ThomasShewan22080488Stack(Stack):
             description="API key for web monitoring CRUD operations"
         )
 
+        # Create minimal Usage Plan to make API key work
+        usage_plan = apigateway.UsagePlan(
+            self, "WebMonitoringUsagePlan",
+            name="WebMonitoringUsagePlan",
+            api_stages=[
+                apigateway.UsagePlanPerApiStage(
+                    api=api,
+                    stage=api.deployment_stage
+                )
+            ]
+        )
+
+        # Associate API Key with Usage Plan
+        usage_plan.add_api_key(api_key)
         # Lambda Integration with proxy mode
         # LambdaIntegration: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_apigateway/LambdaIntegration.html
         # Proxy integration: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html
