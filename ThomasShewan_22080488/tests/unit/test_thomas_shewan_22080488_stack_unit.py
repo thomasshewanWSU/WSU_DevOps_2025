@@ -16,7 +16,7 @@ def template(stack):
 
 def test_lambda_functions_created(template):
     """Both Lambda functions should be created"""
-    template.resource_count_is("AWS::Lambda::Function", 2)
+    template.resource_count_is("AWS::Lambda::Function", 3)
 
 
 def test_monitoring_lambda_properties(template):
@@ -51,7 +51,7 @@ def test_sns_topic_created(template):
 
 def test_dynamodb_table_created(template):
     """DynamoDB table for alarm logging should exist"""
-    template.resource_count_is("AWS::DynamoDB::Table", 1)
+    template.resource_count_is("AWS::DynamoDB::Table", 2)
 
 
 def test_cloudwatch_alarms_created(template):
