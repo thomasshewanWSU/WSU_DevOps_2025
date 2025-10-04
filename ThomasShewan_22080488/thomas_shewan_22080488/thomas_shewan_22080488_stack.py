@@ -97,25 +97,29 @@ class ThomasShewan22080488Stack(Stack):
             )
         )
 
+         # Create API Key for security
+        api_key = apigateway.ApiKey(
+            self, "WebMonitoringApiKey",
+            description="API key for web monitoring CRUD operations"
+        )
+
         # Lambda Integration with proxy mode
         # LambdaIntegration: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_apigateway/LambdaIntegration.html
         # Proxy integration: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html
         crud_integration = apigateway.LambdaIntegration(crud_lambda, proxy=True)
 
-        # Define RESTful API Routes ------------------------
-        # API Gateway Resource: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_apigateway/Resource.html
-        # add_resource: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_apigateway/IResource.html#aws_cdk.aws_apigateway.IResource.add_resource
-        # add_method: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_apigateway/Resource.html#aws_cdk.aws_apigateway.Resource.add_method
+        # Define RESTful API Routes with API Key Required ------------------------
         targets_resource = api.root.add_resource("targets")
-        targets_resource.add_method("GET", crud_integration)    # List all targets
-        targets_resource.add_method("POST", crud_integration)   # Create new target
+        targets_resource.add_method("GET", crud_integration, api_key_required=True)    # List all targets
+        targets_resource.add_method("POST", crud_integration, api_key_required=True)   # Create new target
 
         # Path parameter resource: https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-method-settings-method-request.html
         target_resource = targets_resource.add_resource("{id}")  # {id} is a path parameter
-        target_resource.add_method("GET", crud_integration)     # Get single target
-        target_resource.add_method("PUT", crud_integration)     # Update target
-        target_resource.add_method("DELETE", crud_integration)  # Delete target
+        target_resource.add_method("GET", crud_integration, api_key_required=True)     # Get single target
+        target_resource.add_method("PUT", crud_integration, api_key_required=True)     # Update target
+        target_resource.add_method("DELETE", crud_integration, api_key_required=True)  # Delete target
 
+        
         # CloudFormation Outputs ------------------------
         # CfnOutput: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk/CfnOutput.html
         # Export API URL for testing and integration
@@ -133,7 +137,13 @@ class ThomasShewan22080488Stack(Stack):
             description="DynamoDB table name for targets"
         )
 
-
+        # Output the API Key ID so you can get the actual key value
+        CfnOutput(
+            self, "ApiKeyId",
+            value=api_key.key_id,
+            description="API Key ID - use this to get the actual key value",
+            export_name="WebMonitoringApiKeyId"
+        )
 
         # Web Monitoring Lambda Function------------------------
         # Create the main Lambda function that performs health checks on websites
