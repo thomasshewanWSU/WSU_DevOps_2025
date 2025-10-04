@@ -4,6 +4,7 @@ import time
 import json
 import os
 import boto3
+from boto3.dynamodb.conditions import Attr
 
 from constants import (
     METRIC_NAMESPACE,
@@ -21,25 +22,31 @@ def lambda_handler(event, context):
     # Initialize CloudWatch client
     cloudwatch = boto3.client('cloudwatch')
     
-    # Website list - pulled from env var if present else defaults
-    websites = load_websites()
+    targets = get_targets_from_dynamodb()
+    
+    # Fallback 
+    if not targets:
+        print("No targets in DynamoDB, using defaults from environment")
+        targets = load_websites()
+    else:
+        print(f"Loaded {len(targets)} targets from DynamoDB")
     
     all_results = []
     
     # Monitor each website
-    for website in websites:
+    for website in targets: 
         result = monitor_website(website["name"], website["url"])
         all_results.append(result)
         
         # Send metrics to CloudWatch
         send_metrics_to_cloudwatch(cloudwatch, result)
     
-    print(f"Monitoring completed for {len(websites)} websites")
+    print(f"Monitoring completed for {len(targets)} websites")
     
     return {
         'statusCode': 200,
         'body': json.dumps({
-            'message': f'Successfully monitored {len(websites)} websites',
+            'message': f'Successfully monitored {len(targets)} websites',
             'results': all_results
         })
     }
@@ -188,3 +195,40 @@ def send_metrics_to_cloudwatch(cloudwatch, result):
         
     except Exception as e:
         print(f"Error sending metrics to CloudWatch for {website_name}: {str(e)}")
+
+
+def get_targets_from_dynamodb():
+    """
+    Fetch enabled monitoring targets from DynamoDB.
+    Returns list of targets in format: [{'name': '...', 'url': '...'}, ...]
+    """
+    try:
+        table_name = os.environ.get('TARGETS_TABLE_NAME')
+        if not table_name:
+            print("TARGETS_TABLE_NAME not set in environment")
+            return []
+        
+        dynamodb = boto3.resource('dynamodb')
+        table = dynamodb.Table(table_name)
+        
+        # Scan for enabled targets only
+        response = table.scan(
+            FilterExpression=Attr('enabled').eq(True)
+        )
+        
+        items = response.get('Items', [])
+        
+        # Convert DynamoDB format to expected format
+        targets = [
+            {
+                'name': item['name'],
+                'url': item['url']
+            }
+            for item in items
+        ]
+        
+        return targets
+        
+    except Exception as e:
+        print(f"Error reading from DynamoDB: {str(e)}")
+        return []

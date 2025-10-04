@@ -12,6 +12,8 @@ from aws_cdk import (
     aws_sns_subscriptions as subscriptions,
     aws_dynamodb as dynamodb,
     aws_cloudwatch_actions as cloudwatch_actions,
+    CfnOutput,
+    aws_apigateway as apigateway
 )
 from constructs import Construct
 
@@ -29,6 +31,97 @@ class ThomasShewan22080488Stack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
         
+        # CRUD API - DynamoDB Table for Target Management ------------------------
+        # Create DynamoDB table to store web monitoring targets
+        # DynamoDB Table: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_dynamodb/Table.html
+        # Attribute: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_dynamodb/Attribute.html
+        targets_table = dynamodb.Table(
+            self, "WebTargetsTable",
+            partition_key=dynamodb.Attribute(
+                name="TargetId",
+                type=dynamodb.AttributeType.STRING  # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_dynamodb/AttributeType.html
+            ),
+            removal_policy=RemovalPolicy.DESTROY,  # Clean up on delete: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk/RemovalPolicy.html
+            table_name="WebMonitoringTargets"
+        )
+
+        # CRUD Lambda Function ------------------------
+        # Lambda function to handle Create, Read, Update, Delete operations
+        # Lambda Function: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_lambda/Function.html
+        # Runtime: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_lambda/Runtime.html
+        crud_lambda = lambda_.Function(
+            self, "CrudLambda",
+            runtime=lambda_.Runtime.PYTHON_3_11,  
+            handler="CrudLambda.lambda_handler",  
+            code=lambda_.Code.from_asset("./modules"),  
+            timeout=Duration.seconds(30),
+            description="CRUD operations for web monitoring targets",
+            environment={  
+                "TARGETS_TABLE_NAME": targets_table.table_name
+            }
+        )
+
+        # Grant Lambda read/write permissions to DynamoDB table
+        # IAM permissions: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_dynamodb/Table.html#aws_cdk.aws_dynamodb.Table.grant_read_write_data
+        targets_table.grant_read_write_data(crud_lambda)
+
+        # API Gateway REST API ------------------------
+        # Create REST API for CRUD operations
+        # RestApi: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_apigateway/RestApi.html
+        api = apigateway.RestApi(
+            self, "TargetsApi",
+            rest_api_name="WebCrawlerTargetsAPI",
+            description="CRUD API for managing web monitoring targets",
+            deploy_options=apigateway.StageOptions(  # Stage options: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_apigateway/StageOptions.html
+                stage_name="prod",
+                metrics_enabled=True,  # Enable CloudWatch metrics
+                logging_level=apigateway.MethodLoggingLevel.INFO  # Logging level: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_apigateway/MethodLoggingLevel.html
+            ),
+            # Enable CORS for web access: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_apigateway/CorsOptions.html
+            default_cors_preflight_options=apigateway.CorsOptions(
+                allow_origins=apigateway.Cors.ALL_ORIGINS,  # CORS constants: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_apigateway/Cors.html
+                allow_methods=apigateway.Cors.ALL_METHODS
+            )
+        )
+
+        # Lambda Integration with proxy mode
+        # LambdaIntegration: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_apigateway/LambdaIntegration.html
+        # Proxy integration: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html
+        crud_integration = apigateway.LambdaIntegration(crud_lambda, proxy=True)
+
+        # Define RESTful API Routes ------------------------
+        # API Gateway Resource: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_apigateway/Resource.html
+        # add_resource: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_apigateway/IResource.html#aws_cdk.aws_apigateway.IResource.add_resource
+        # add_method: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_apigateway/Resource.html#aws_cdk.aws_apigateway.Resource.add_method
+        targets_resource = api.root.add_resource("targets")
+        targets_resource.add_method("GET", crud_integration)    # List all targets
+        targets_resource.add_method("POST", crud_integration)   # Create new target
+
+        # Path parameter resource: https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-method-settings-method-request.html
+        target_resource = targets_resource.add_resource("{id}")  # {id} is a path parameter
+        target_resource.add_method("GET", crud_integration)     # Get single target
+        target_resource.add_method("PUT", crud_integration)     # Update target
+        target_resource.add_method("DELETE", crud_integration)  # Delete target
+
+        # CloudFormation Outputs ------------------------
+        # CfnOutput: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk/CfnOutput.html
+        # Export API URL for testing and integration
+        CfnOutput(
+            self, "ApiUrl",
+            value=api.url,  # API Gateway URL: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_apigateway/RestApi.html#aws_cdk.aws_apigateway.RestApi.url
+            description="API Gateway URL for CRUD operations",
+            export_name="WebCrawlerApiUrl"  # Export for cross-stack references: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-stack-exports.html
+        )
+        
+        # Export table name for reference
+        CfnOutput(
+            self, "TargetsTableName",
+            value=targets_table.table_name,
+            description="DynamoDB table name for targets"
+        )
+
+
+
         # Web Monitoring Lambda Function------------------------
         # Create the main Lambda function that performs health checks on websites
         # This function runs every 5 minutes and publishes metrics to CloudWatch
@@ -41,7 +134,8 @@ class ThomasShewan22080488Stack(Stack):
             timeout=Duration.seconds(60), 
             description="Web health monitoring canary - crawls multiple websites",
             environment={
-                ENV_WEBSITES: json.dumps(DEFAULT_WEBSITES)
+                ENV_WEBSITES: json.dumps(DEFAULT_WEBSITES),
+                "TARGETS_TABLE_NAME": targets_table.table_name  
             }
         )
         
@@ -55,6 +149,8 @@ class ThomasShewan22080488Stack(Stack):
                 resources=["*"]
             )
         )
+
+        targets_table.grant_read_data(canary_lambda)
 
         # Lambda Versioning & Alias Setup------------------------
         # Create a version and alias to enable gradual deployments with rollback

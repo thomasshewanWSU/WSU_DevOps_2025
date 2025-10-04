@@ -4,6 +4,8 @@ Tests the complete end-to-end workflow of the monitoring system
 """
 import boto3
 import pytest
+import time
+import requests
 
 
 from modules.constants import DEFAULT_WEBSITES
@@ -148,3 +150,81 @@ def test_complete_monitoring_workflow():
         pytest.fail(str(e))
     except Exception as e:
         pytest.skip(f"Workflow test skipped: {str(e)}")
+
+
+# CRUD Testing
+
+def api_url():
+    """Get API URL from CloudFormation outputs"""
+    cfn = boto3.client('cloudformation', region_name='ap-southeast-2')
+    try:
+        response = cfn.describe_stacks(StackName='prod-ThomasShewan22080488Stack')
+        outputs = response['Stacks'][0]['Outputs']
+        api_url = next(o['OutputValue'] for o in outputs if o['OutputKey'] == 'ApiUrl')
+        return api_url
+    except Exception as e:
+        pytest.skip(f"Stack not deployed: {str(e)}")
+
+def test_crud_workflow_with_timing(api_url):
+    """Test complete CRUD workflow and measure DynamoDB response times"""
+    
+    # CREATE - Measure write time
+    create_start = time.time()
+    response = requests.post(
+        f"{api_url}targets",
+        json={
+            'name': 'Integration Test Site',
+            'url': 'https://integration-test.example.com'
+        }
+    )
+    create_time = (time.time() - create_start) * 1000
+    
+    assert response.status_code == 201
+    target = response.json()
+    target_id = target['TargetId']
+    print(f"CREATE time: {create_time:.2f}ms")
+    assert create_time < 1000  # Should be under 1 second
+    
+    # READ - Measure read time
+    read_start = time.time()
+    response = requests.get(f"{api_url}targets/{target_id}")
+    read_time = (time.time() - read_start) * 1000
+    
+    assert response.status_code == 200
+    print(f"READ time: {read_time:.2f}ms")
+    assert read_time < 500
+    
+    # UPDATE - Measure update time
+    update_start = time.time()
+    response = requests.put(
+        f"{api_url}targets/{target_id}",
+        json={'enabled': False}
+    )
+    update_time = (time.time() - update_start) * 1000
+    
+    assert response.status_code == 200
+    print(f"UPDATE time: {update_time:.2f}ms")
+    assert update_time < 1000
+    
+    # DELETE - Measure delete time
+    delete_start = time.time()
+    response = requests.delete(f"{api_url}targets/{target_id}")
+    delete_time = (time.time() - delete_start) * 1000
+    
+    assert response.status_code == 200
+    print(f"DELETE time: {delete_time:.2f}ms")
+    assert delete_time < 500
+    
+    # Verify deletion
+    response = requests.get(f"{api_url}targets/{target_id}")
+    assert response.status_code == 404
+
+def test_list_targets_performance(api_url):
+    """Test LIST operation and measure scan time"""
+    start = time.time()
+    response = requests.get(f"{api_url}targets")
+    list_time = (time.time() - start) * 1000
+    
+    assert response.status_code == 200
+    print(f"LIST time: {list_time:.2f}ms")
+    assert list_time < 2000  # Scan can be slower with more items

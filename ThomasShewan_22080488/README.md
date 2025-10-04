@@ -145,3 +145,46 @@ cdk deploy ThomasShewan22080488Stack
 
 ## Operational Notes
 See [`RUNBOOK.md`](RUNBOOK.md) for response steps (availability, high latency, low throughput).
+
+## CRUD API for Target Management
+
+### Overview
+RESTful API for managing web monitoring targets dynamically without redeployment.
+
+### API Endpoint
+```bash
+# Get your API URL
+aws cloudformation describe-stacks --stack-name prod-ThomasShewan22080488Stack \
+  --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' --output text
+```
+
+### Quick Start
+```bash
+# Add a new target
+curl -X POST $API_URL/targets \
+  -H "Content-Type: application/json" \
+  -d '{"name": "MyWebsite", "url": "https://example.com"}'
+
+# List all targets
+curl $API_URL/targets
+
+# Update target
+curl -X PUT $API_URL/targets/{id} \
+  -H "Content-Type: application/json" \
+  -d '{"enabled": false}'
+
+# Delete target
+curl -X DELETE $API_URL/targets/{id}
+```
+
+See [API_DOCUMENTATION.md](API_DOCUMENTATION.md) for full API reference.
+
+### DynamoDB Schema
+- **Table**: `WebMonitoringTargets`
+- **Partition Key**: `TargetId` (UUID)
+- **Attributes**:
+  - `name`: Display name
+  - `url`: Target URL
+  - `enabled`: Boolean flag
+  - `created_at`: ISO timestamp
+  - `updated_at`: ISO timestamp
