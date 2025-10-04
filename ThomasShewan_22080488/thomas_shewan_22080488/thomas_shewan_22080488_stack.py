@@ -64,7 +64,7 @@ class ThomasShewan22080488Stack(Stack):
         crud_lambda = lambda_.Function(
             self, "CrudLambda",
             runtime=lambda_.Runtime.PYTHON_3_11,  
-            handler="CrudLambda.lambda_handler",  
+            handler="CRUDLambda.lambda_handler",  
             code=lambda_.Code.from_asset("./modules"),  
             timeout=Duration.seconds(30),
             description="CRUD operations for web monitoring targets",
