@@ -153,7 +153,7 @@ def test_complete_monitoring_workflow():
 
 
 # CRUD Testing
-
+@pytest.fixture
 def api_url():
     """Get API URL from CloudFormation outputs"""
     cfn = boto3.client('cloudformation', region_name='ap-southeast-2')
