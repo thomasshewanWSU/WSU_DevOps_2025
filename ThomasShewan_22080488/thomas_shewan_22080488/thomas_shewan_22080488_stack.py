@@ -88,7 +88,7 @@ class ThomasShewan22080488Stack(Stack):
                 data_trace_enabled=True,
                 tracing_enabled=True,
                 # Assign the CloudWatch Logs role
-                cloud_watch_role=apigw_log_role
+                cloud_watch_role=api_log_role
             ),
             default_cors_preflight_options=apigateway.CorsOptions(
                 allow_origins=apigateway.Cors.ALL_ORIGINS,
