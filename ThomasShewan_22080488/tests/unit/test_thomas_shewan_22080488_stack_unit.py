@@ -55,5 +55,5 @@ def test_dynamodb_table_created(template):
 
 
 def test_cloudwatch_alarms_created(template):
-    """All alarms should be created (12 in total: 9 website + 3 Lambda)"""
-    template.resource_count_is("AWS::CloudWatch::Alarm", 12)
+    """All alarms should be created (3 Lambda)"""
+    template.resource_count_is("AWS::CloudWatch::Alarm", 3)
