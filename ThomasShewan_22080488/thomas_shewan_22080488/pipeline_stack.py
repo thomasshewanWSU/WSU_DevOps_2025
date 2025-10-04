@@ -18,7 +18,7 @@ class PipelineStack(Stack):
             authentication=SecretValue.secrets_manager("github-token"),
         )
 
-        # Synth step - builds CDK assets
+        # Synth step - builds CDK asset
         synth_step = pipelines.ShellStep(
             "CodeBuild",
             input=source,
