@@ -5,7 +5,7 @@ import aws_cdk as cdk
 
 from thomas_shewan_22080488.pipeline_stack import PipelineStack  
 
-
+#App definition
 app = cdk.App()
 PipelineStack(app, "WebMonitoringPipelineStack",
     env=cdk.Environment(
