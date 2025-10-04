@@ -31,7 +31,6 @@ class ThomasShewan22080488Stack(Stack):
         super().__init__(scope, construct_id, **kwargs)
         
         # Web Monitoring Lambda Function------------------------
-
         # Create the main Lambda function that performs health checks on websites
         # This function runs every 5 minutes and publishes metrics to CloudWatch
         
@@ -59,9 +58,7 @@ class ThomasShewan22080488Stack(Stack):
         )
 
         # Lambda Versioning & Alias Setup------------------------
-
         # Create a version and alias to enable gradual deployments with rollback
-        
         # Create a new version of the Lambda on each deployment
         lambda_version = canary_lambda.current_version
         
@@ -75,9 +72,8 @@ class ThomasShewan22080488Stack(Stack):
         )
 
         # Alarm Notification Setup--------------------------
-
         # Configure SNS topic for alarm notifications and DynamoDB for logging
-        
+    
         # Create SNS topic to send alarm notifications
         alarm_topic = sns.Topic(
             self, "AlarmNotificationTopic",
@@ -125,16 +121,13 @@ class ThomasShewan22080488Stack(Stack):
         )
         
         # CloudWatch Dashboard-------------------------------
-
         # Create a centralized dashboard for monitoring all metrics
-        
         dashboard = cloudwatch.Dashboard(
             self, "WebHealthDashboard",
             dashboard_name="WebsiteHealthMonitoring"
         )
 
         # Lambda Operational Metrics & Alarms----------------------
-
         # Monitor the health and performance of the monitoring Lambda itself
         # This helps identify issues with the monitoring infrastructure
         
@@ -208,38 +201,37 @@ class ThomasShewan22080488Stack(Stack):
             )
         )
 
-        # CodeDeploy Configuration for Gradual Rollout-------------------
-
-        # Configure CodeDeploy to gradually shift traffic with automatic rollback
+        # # CodeDeploy Configuration for Gradual Rollout-------------------
+        # # Configure CodeDeploy to gradually shift traffic with automatic rollback
         
-        # Create a CodeDeploy application for Lambda deployments
-        application = codedeploy.LambdaApplication(
-            self, "CanaryDeploymentApplication",
-            application_name="WebMonitoringCanaryApp"
-        )
+        # # Create a CodeDeploy application for Lambda deployments
+        # application = codedeploy.LambdaApplication(
+        #     self, "CanaryDeploymentApplication",
+        #     application_name="WebMonitoringCanaryApp"
+        # )
         
-        # Create deployment group with canary deployment strategy
-        deployment_group = codedeploy.LambdaDeploymentGroup(
-            self, "CanaryDeploymentGroup",
-            application=application,
-            alias=prod_alias,
-            deployment_config=codedeploy.LambdaDeploymentConfig.CANARY_10_PERCENT_5_MINUTES,
+        # # Create deployment group with canary deployment strategy
+        # deployment_group = codedeploy.LambdaDeploymentGroup(
+        #     self, "CanaryDeploymentGroup",
+        #     application=application,
+        #     alias=prod_alias,
+        #     deployment_config=codedeploy.LambdaDeploymentConfig.CANARY_10_PERCENT_5_MINUTES,
 
-            alarms=[
-                duration_alarm,
-                invocations_alarm,
-                errors_alarm,
-            ],
+        #     alarms=[
+        #         duration_alarm,
+        #         invocations_alarm,
+        #         errors_alarm,
+        #     ],
             
-            # Automatically rollback if any alarm triggers
-            auto_rollback=codedeploy.AutoRollbackConfig(
-                failed_deployment=True,  # Rollback on deployment failure
-                stopped_deployment=True,  # Rollback if deployment is manually stopped
-                deployment_in_alarm=True  # Rollback if any alarm triggers
-            ),
+        #     # Automatically rollback if any alarm triggers
+        #     auto_rollback=codedeploy.AutoRollbackConfig(
+        #         failed_deployment=True,  # Rollback on deployment failure
+        #         stopped_deployment=True,  # Rollback if deployment is manually stopped
+        #         deployment_in_alarm=True  # Rollback if any alarm triggers
+        #     ),
             
-            deployment_group_name="WebMonitoringCanaryDeploymentGroup"
-        )
+        #     deployment_group_name="WebMonitoringCanaryDeploymentGroup"
+        # )
 
         # EventBridge Scheduling ------------------------
 
@@ -258,7 +250,6 @@ class ThomasShewan22080488Stack(Stack):
         )
 
         # Website Monitoring Setup-----------------------------
-
         # Create metrics and alarms for each monitored website
         # This section processes all configured websites and sets up monitoring
         
@@ -278,7 +269,6 @@ class ThomasShewan22080488Stack(Stack):
             throughput_metrics.append(metrics['throughput'])
 
         # Aggregate Dashboard -----------------------
-
         # Create dashboard widgets that show metrics for all websites combined
         
         dashboard.add_widgets(
@@ -323,7 +313,6 @@ class ThomasShewan22080488Stack(Stack):
         print(f"CloudWatch Dashboard: {dashboard.dashboard_name}")
     
     # Create Website Monitoring-----------------------------
-
     def create_website_monitoring(self, website_name: str, dashboard: cloudwatch.Dashboard, alarm_topic: sns.Topic):
         """
         Create comprehensive monitoring setup for a single website.
