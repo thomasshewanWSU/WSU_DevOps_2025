@@ -16,7 +16,7 @@ from aws_cdk import (
     aws_apigateway as apigateway
 )
 from constructs import Construct
-
+import os
 from modules.constants import (
     METRIC_NAMESPACE,
     METRIC_AVAILABILITY,
