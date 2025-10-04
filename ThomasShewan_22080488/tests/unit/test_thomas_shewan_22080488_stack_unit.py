@@ -4,7 +4,7 @@ import pytest
 from thomas_shewan_22080488.thomas_shewan_22080488_stack import ThomasShewan22080488Stack
 from unittest.mock import patch
 import json
-from modules.CRUDLambda import CrudLambda
+from modules.CRUDLambda import lambda_handler as CrudLambda
 
 @pytest.fixture
 def stack():
