@@ -3,8 +3,8 @@ import aws_cdk.assertions as assertions
 import pytest
 from thomas_shewan_22080488.thomas_shewan_22080488_stack import ThomasShewan22080488Stack
 from unittest.mock import patch
-from modules import CrudLambda
 import json
+from modules.CRUDLambda import CrudLambda
 
 @pytest.fixture
 def stack():

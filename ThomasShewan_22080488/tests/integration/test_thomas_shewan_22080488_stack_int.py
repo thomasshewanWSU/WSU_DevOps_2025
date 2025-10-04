@@ -10,7 +10,7 @@ import requests
 
 from modules.constants import DEFAULT_WEBSITES
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def aws_clients():
     """Create all required AWS clients"""
     return {
@@ -153,7 +153,7 @@ def test_complete_monitoring_workflow():
 
 
 # CRUD Testing
-@pytest.fixture
+@pytest.fixture(scope='module')
 def api_url():
     """Get API URL from CloudFormation outputs"""
     cfn = boto3.client('cloudformation', region_name='ap-southeast-2')
