@@ -388,33 +388,43 @@ class ThomasShewan22080488Stack(Stack):
         availability_alarm.add_alarm_action(cloudwatch_actions.SnsAction(alarm_topic))
 
         # Latency Alarm with Anomaly Detection
+        latency_anomaly_expression = cloudwatch.MathExpression(
+            expression="ANOMALY_DETECTION_BAND(m1, 2)",
+            using_metrics={"m1": latency_metric},
+            label=f"{website_name} Latency Anomaly Band"
+        )
+        
         latency_alarm = cloudwatch.Alarm(
             self, f"{website_name}LatencyAlarm",
             alarm_name=f"{website_name}-Latency-Alarm", 
             alarm_description=f"Alert when {website_name} latency is anomalous (outside 2 standard deviations)",
-            metric=latency_metric.with_anomaly_detection(band_width=2),
+            metric=latency_anomaly_expression,
             threshold=0,
-            comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_LOWER_OR_GREATER_THAN_UPPER_THRESHOLD,
+            comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_LOWER_THRESHOLD,
             evaluation_periods=3,
             datapoints_to_alarm=2,
             treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING
         )
-        # CloudWatch will learn normal patterns over ~2 weeks and create a dynamic threshold band
         latency_alarm.add_alarm_action(cloudwatch_actions.SnsAction(alarm_topic))
 
         # Throughput Alarm with Anomaly Detection
+        throughput_anomaly_expression = cloudwatch.MathExpression(
+            expression="ANOMALY_DETECTION_BAND(m1, 2)",
+            using_metrics={"m1": throughput_metric},
+            label=f"{website_name} Throughput Anomaly Band"
+        )
+        
         throughput_alarm = cloudwatch.Alarm(
             self, f"{website_name}ThroughputAlarm",
             alarm_name=f"{website_name}-Throughput-Alarm",
             alarm_description=f"Alert when {website_name} throughput is anomalous (outside 2 standard deviations)",
-            metric=throughput_metric.with_anomaly_detection(band_width=2),
+            metric=throughput_anomaly_expression,
             threshold=0,
-            comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_LOWER_OR_GREATER_THAN_UPPER_THRESHOLD,
+            comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_LOWER_THRESHOLD,
             evaluation_periods=3,
             datapoints_to_alarm=2,
             treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING
         )
-        # CloudWatch will automatically adjust thresholds based on time-of-day and day-of-week patterns
         throughput_alarm.add_alarm_action(cloudwatch_actions.SnsAction(alarm_topic))
 
         # Return metrics for use in aggregate dashboard widgets
