@@ -4,10 +4,11 @@ import pytest
 from thomas_shewan_22080488.thomas_shewan_22080488_stack import ThomasShewan22080488Stack
 from unittest.mock import patch
 import json
-from modules.CRUDLambda import lambda_handler as CrudLambda
 import os
 os.environ['TARGETS_TABLE_NAME'] = 'test-table'
 os.environ['AWS_DEFAULT_REGION'] = 'ap-southeast-2'
+
+from modules.CRUDLambda import lambda_handler as CrudLambda
 
 
 @pytest.fixture
