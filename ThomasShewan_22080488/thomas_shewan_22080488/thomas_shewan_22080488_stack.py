@@ -136,9 +136,9 @@ class ThomasShewan22080488Stack(Stack):
         duration_alarm = cloudwatch.Alarm(
             self, "CanaryLambdaDurationAlarm",
             alarm_name="CanaryLambda-Duration-Alarm",
-            alarm_description="Lambda average duration > 5000ms",
+            alarm_description="Lambda average duration > 30000ms",
             metric=duration_metric,
-            threshold=5000,  # Alert if average duration exceeds 5 seconds
+            threshold=30000,  # Alert if average duration exceeds 30 seconds
             evaluation_periods=1,
             datapoints_to_alarm=1,
             comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
