@@ -36,10 +36,15 @@ def lambda_handler(event, context):
         }
     
     print(f"Loaded {len(targets)} targets from DynamoDB")
-    
-    all_results = []
-    
+    #     static_websites = load_websites()
+    #     for website in static_websites:
+    #         targets.append({
+    #             'name': website['name'],
+    #             'url': website['url']
+    #         })
     # Monitor each website
+    all_results = []
+
     for website in targets: 
         result = monitor_website(website["name"], website["url"])
         all_results.append(result)
