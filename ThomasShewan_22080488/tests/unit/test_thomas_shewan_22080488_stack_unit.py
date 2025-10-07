@@ -18,7 +18,7 @@ def template(stack):
 
 def test_lambda_functions_created(template):
     """Four Lambda functions should be created: CRUD, Monitoring, DashboardManager, AlarmLogger"""
-    template.resource_count_is("AWS::Lambda::Function", 3)  # ✅ This is correct
+    template.resource_count_is("AWS::Lambda::Function", 4)  # ✅ This is correct
 
 
 # def test_cloudwatch_dashboards_created(template):
