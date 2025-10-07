@@ -264,14 +264,15 @@ class ThomasShewan22080488Stack(Stack):
             handler="InfrastructureLambda.lambda_handler",
             code=lambda_.Code.from_asset("./modules"),
             timeout=Duration.seconds(60),
-            description="Dynamically manages CloudWatch alarms based on DynamoDB changes",
+            description="Dynamically manages CloudWatch alarms and dashboard widgets based on DynamoDB changes",
             environment={
                 "ALARM_TOPIC_ARN": alarm_topic.topic_arn,
-                "DASHBOARD_NAME": "WebsiteHealthMonitoring"
+                "DASHBOARD_NAME": "WebsiteHealthMonitoring",
+                "AWS_REGION": self.region  # Lambda's AWS region for dashboard widgets
             }
         )
         
-        # Grant permissions to manage CloudWatch alarms
+        # Grant permissions to manage CloudWatch alarms and dashboards
         infra_lambda.add_to_role_policy(
             iam.PolicyStatement(
                 effect=iam.Effect.ALLOW,
@@ -279,7 +280,9 @@ class ThomasShewan22080488Stack(Stack):
                     "cloudwatch:PutMetricData",
                     "cloudwatch:PutMetricAlarm",
                     "cloudwatch:DeleteAlarms",
-                    "cloudwatch:DescribeAlarms"
+                    "cloudwatch:DescribeAlarms",
+                    "cloudwatch:GetDashboard",
+                    "cloudwatch:PutDashboard"
                 ],
                 resources=["*"]
             )

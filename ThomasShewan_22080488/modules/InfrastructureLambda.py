@@ -97,6 +97,8 @@ def handle_website_added(website_name, alarm_topic_arn, dashboard_name):
     1. Availability Alarm - alerts when site is down
     2. Latency Alarm - alerts when response time is anomalous
     3. Throughput Alarm - alerts when data transfer rate is anomalous
+    
+    Also updates the CloudWatch dashboard to include widgets for the new website.
     """
     print(f"Creating alarms for {website_name}")
     
@@ -190,6 +192,9 @@ def handle_website_added(website_name, alarm_topic_arn, dashboard_name):
         
         print(f"✓ Successfully created all alarms for {website_name}")
         
+        # Add widgets to dashboard
+        add_dashboard_widgets(website_name, dashboard_name)
+        
     except Exception as e:
         print(f"✗ Error creating alarms for {website_name}: {str(e)}")
         raise
@@ -203,6 +208,8 @@ def handle_website_removed(website_name):
     - Availability alarm
     - Latency alarm
     - Throughput alarm
+    
+    Also removes the website's widgets from the CloudWatch dashboard.
     """
     print(f"Deleting alarms for {website_name}")
     
@@ -215,7 +222,174 @@ def handle_website_removed(website_name):
     try:
         cloudwatch.delete_alarms(AlarmNames=alarm_names)
         print(f"✓ Successfully deleted alarms for {website_name}")
+        
+        # Remove widgets from dashboard
+        remove_dashboard_widgets(website_name, os.environ['DASHBOARD_NAME'])
+        
     except Exception as e:
         print(f"✗ Error deleting alarms for {website_name}: {str(e)}")
         # Don't raise - deletion failures shouldn't block the stream processing
         # The alarms might already be deleted or never existed
+
+
+def add_dashboard_widgets(website_name, dashboard_name):
+    """
+    Add monitoring widgets for a website to the CloudWatch dashboard
+    
+    Creates three widgets in a row:
+    - Availability widget (graph showing uptime)
+    - Latency widget (graph showing response time)
+    - Throughput widget (graph showing data transfer rate)
+    """
+    print(f"Adding dashboard widgets for {website_name}")
+    
+    try:
+        # Get current dashboard configuration
+        response = cloudwatch.get_dashboard(DashboardName=dashboard_name)
+        dashboard_body = json.loads(response['DashboardBody'])
+        
+        # Dashboard uses a widgets array
+        widgets = dashboard_body.get('widgets', [])
+        
+        # Calculate position for new widgets
+        # Find the maximum Y coordinate to place new widgets below existing ones
+        max_y = 0
+        for widget in widgets:
+            widget_y = widget.get('y', 0)
+            widget_height = widget.get('height', 6)
+            bottom = widget_y + widget_height
+            if bottom > max_y:
+                max_y = bottom
+        
+        # Create widget definitions for the new website
+        # Place them in a row: Availability (col 0), Latency (col 6), Throughput (col 12)
+        new_widgets = [
+            {
+                "type": "metric",
+                "x": 0,
+                "y": max_y,
+                "width": 6,
+                "height": 6,
+                "properties": {
+                    "metrics": [
+                        [METRIC_NAMESPACE, METRIC_AVAILABILITY, DIM_WEBSITE, website_name]
+                    ],
+                    "period": 300,
+                    "stat": "Average",
+                    "region": os.environ.get('AWS_REGION', 'ap-southeast-2'),
+                    "title": f"{website_name} - Availability",
+                    "yAxis": {
+                        "left": {
+                            "min": 0,
+                            "max": 1.1
+                        }
+                    }
+                }
+            },
+            {
+                "type": "metric",
+                "x": 6,
+                "y": max_y,
+                "width": 6,
+                "height": 6,
+                "properties": {
+                    "metrics": [
+                        [METRIC_NAMESPACE, METRIC_LATENCY, DIM_WEBSITE, website_name]
+                    ],
+                    "period": 300,
+                    "stat": "Average",
+                    "region": os.environ.get('AWS_REGION', 'ap-southeast-2'),
+                    "title": f"{website_name} - Latency (ms)",
+                    "yAxis": {
+                        "left": {
+                            "min": 0
+                        }
+                    }
+                }
+            },
+            {
+                "type": "metric",
+                "x": 12,
+                "y": max_y,
+                "width": 6,
+                "height": 6,
+                "properties": {
+                    "metrics": [
+                        [METRIC_NAMESPACE, METRIC_THROUGHPUT, DIM_WEBSITE, website_name]
+                    ],
+                    "period": 300,
+                    "stat": "Average",
+                    "region": os.environ.get('AWS_REGION', 'ap-southeast-2'),
+                    "title": f"{website_name} - Throughput (bytes/s)",
+                    "yAxis": {
+                        "left": {
+                            "min": 0
+                        }
+                    }
+                }
+            }
+        ]
+        
+        # Add new widgets to the dashboard
+        widgets.extend(new_widgets)
+        dashboard_body['widgets'] = widgets
+        
+        # Update the dashboard
+        cloudwatch.put_dashboard(
+            DashboardName=dashboard_name,
+            DashboardBody=json.dumps(dashboard_body)
+        )
+        
+        print(f"  ✓ Added {len(new_widgets)} widgets to dashboard for {website_name}")
+        
+    except cloudwatch.exceptions.ResourceNotFound:
+        print(f"  ⚠ Dashboard '{dashboard_name}' not found - skipping widget creation")
+    except Exception as e:
+        print(f"  ✗ Error adding dashboard widgets for {website_name}: {str(e)}")
+        # Don't raise - dashboard updates are not critical
+
+
+def remove_dashboard_widgets(website_name, dashboard_name):
+    """
+    Remove monitoring widgets for a website from the CloudWatch dashboard
+    
+    Removes all widgets that reference the specified website name in their title.
+    """
+    print(f"Removing dashboard widgets for {website_name}")
+    
+    try:
+        # Get current dashboard configuration
+        response = cloudwatch.get_dashboard(DashboardName=dashboard_name)
+        dashboard_body = json.loads(response['DashboardBody'])
+        
+        # Dashboard uses a widgets array
+        widgets = dashboard_body.get('widgets', [])
+        original_count = len(widgets)
+        
+        # Filter out widgets that contain the website name in their title
+        # This removes all three widgets (availability, latency, throughput) for this site
+        filtered_widgets = [
+            widget for widget in widgets
+            if not (
+                widget.get('properties', {}).get('title', '').startswith(f"{website_name} -")
+            )
+        ]
+        
+        removed_count = original_count - len(filtered_widgets)
+        
+        if removed_count > 0:
+            # Update the dashboard with filtered widgets
+            dashboard_body['widgets'] = filtered_widgets
+            cloudwatch.put_dashboard(
+                DashboardName=dashboard_name,
+                DashboardBody=json.dumps(dashboard_body)
+            )
+            print(f"  ✓ Removed {removed_count} widgets from dashboard for {website_name}")
+        else:
+            print(f"  ℹ No widgets found for {website_name}")
+        
+    except cloudwatch.exceptions.ResourceNotFound:
+        print(f"  ⚠ Dashboard '{dashboard_name}' not found - skipping widget removal")
+    except Exception as e:
+        print(f"  ✗ Error removing dashboard widgets for {website_name}: {str(e)}")
+        # Don't raise - dashboard updates are not critical
