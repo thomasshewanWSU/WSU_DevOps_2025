@@ -234,14 +234,16 @@ def handle_website_removed(website_name):
 
 def add_dashboard_widgets(website_name, dashboard_name):
     """
-    Add monitoring widgets for a website to the CloudWatch dashboard
+    Add a website's metrics to the aggregate dashboard widgets
     
-    Creates three widgets in a row:
-    - Availability widget (graph showing uptime)
-    - Latency widget (graph showing response time)
-    - Throughput widget (graph showing data transfer rate)
+    Instead of creating new widgets per site, this updates 3 existing aggregate widgets:
+    - Availability widget (all websites as separate lines)
+    - Latency widget (all websites as separate lines)
+    - Throughput widget (all websites as separate lines)
+    
+    This approach scales much better - 100 websites = still just 3 widgets!
     """
-    print(f"Adding dashboard widgets for {website_name}")
+    print(f"Adding {website_name} to aggregate dashboard widgets")
     
     try:
         # Get current dashboard configuration
@@ -251,88 +253,41 @@ def add_dashboard_widgets(website_name, dashboard_name):
         # Dashboard uses a widgets array
         widgets = dashboard_body.get('widgets', [])
         
-        # Calculate position for new widgets
-        # Find the maximum Y coordinate to place new widgets below existing ones
-        max_y = 0
+        # Find the three aggregate widgets by title
+        availability_widget = None
+        latency_widget = None
+        throughput_widget = None
+        
         for widget in widgets:
-            widget_y = widget.get('y', 0)
-            widget_height = widget.get('height', 6)
-            bottom = widget_y + widget_height
-            if bottom > max_y:
-                max_y = bottom
+            title = widget.get('properties', {}).get('title', '')
+            if title == 'Website Availability (All Sites)':
+                availability_widget = widget
+            elif title == 'Response Time - All Websites (ms)':
+                latency_widget = widget
+            elif title == 'Throughput - All Websites (bytes/s)':
+                throughput_widget = widget
         
-        # Create widget definitions for the new website
-        # Place them in a row: Availability (col 0), Latency (col 6), Throughput (col 12)
-        new_widgets = [
-            {
-                "type": "metric",
-                "x": 0,
-                "y": max_y,
-                "width": 6,
-                "height": 6,
-                "properties": {
-                    "metrics": [
-                        [METRIC_NAMESPACE, METRIC_AVAILABILITY, DIM_WEBSITE, website_name]
-                    ],
-                    "period": 300,
-                    "stat": "Average",
-                    "region": os.environ.get('DASHBOARD_REGION', 'ap-southeast-2'),
-                    "title": f"{website_name} - Availability",
-                    "yAxis": {
-                        "left": {
-                            "min": 0,
-                            "max": 1.1
-                        }
-                    }
-                }
-            },
-            {
-                "type": "metric",
-                "x": 6,
-                "y": max_y,
-                "width": 6,
-                "height": 6,
-                "properties": {
-                    "metrics": [
-                        [METRIC_NAMESPACE, METRIC_LATENCY, DIM_WEBSITE, website_name]
-                    ],
-                    "period": 300,
-                    "stat": "Average",
-                    "region": os.environ.get('DASHBOARD_REGION', 'ap-southeast-2'),
-                    "title": f"{website_name} - Latency (ms)",
-                    "yAxis": {
-                        "left": {
-                            "min": 0
-                        }
-                    }
-                }
-            },
-            {
-                "type": "metric",
-                "x": 12,
-                "y": max_y,
-                "width": 6,
-                "height": 6,
-                "properties": {
-                    "metrics": [
-                        [METRIC_NAMESPACE, METRIC_THROUGHPUT, DIM_WEBSITE, website_name]
-                    ],
-                    "period": 300,
-                    "stat": "Average",
-                    "region": os.environ.get('DASHBOARD_REGION', 'ap-southeast-2'),
-                    "title": f"{website_name} - Throughput (bytes/s)",
-                    "yAxis": {
-                        "left": {
-                            "min": 0
-                        }
-                    }
-                }
-            }
-        ]
+        # Add the new website's metric to each widget
+        region = os.environ.get('DASHBOARD_REGION', 'ap-southeast-2')
         
-        # Add new widgets to the dashboard
-        widgets.extend(new_widgets)
-        dashboard_body['widgets'] = widgets
+        if availability_widget:
+            metrics = availability_widget['properties'].get('metrics', [])
+            # Add new metric line: [Namespace, MetricName, DimensionName, DimensionValue]
+            metrics.append([METRIC_NAMESPACE, METRIC_AVAILABILITY, DIM_WEBSITE, website_name])
+            availability_widget['properties']['metrics'] = metrics
+            print(f"  ✓ Added {website_name} to Availability widget")
+        
+        if latency_widget:
+            metrics = latency_widget['properties'].get('metrics', [])
+            metrics.append([METRIC_NAMESPACE, METRIC_LATENCY, DIM_WEBSITE, website_name])
+            latency_widget['properties']['metrics'] = metrics
+            print(f"  ✓ Added {website_name} to Latency widget")
+        
+        if throughput_widget:
+            metrics = throughput_widget['properties'].get('metrics', [])
+            metrics.append([METRIC_NAMESPACE, METRIC_THROUGHPUT, DIM_WEBSITE, website_name])
+            throughput_widget['properties']['metrics'] = metrics
+            print(f"  ✓ Added {website_name} to Throughput widget")
         
         # Update the dashboard
         cloudwatch.put_dashboard(
@@ -340,22 +295,22 @@ def add_dashboard_widgets(website_name, dashboard_name):
             DashboardBody=json.dumps(dashboard_body)
         )
         
-        print(f"  ✓ Added {len(new_widgets)} widgets to dashboard for {website_name}")
+        print(f"✓ Successfully added {website_name} to aggregate dashboard")
         
     except cloudwatch.exceptions.ResourceNotFound:
-        print(f"  ⚠ Dashboard '{dashboard_name}' not found - skipping widget creation")
+        print(f"  ⚠ Dashboard '{dashboard_name}' not found - skipping widget updates")
     except Exception as e:
-        print(f"  ✗ Error adding dashboard widgets for {website_name}: {str(e)}")
+        print(f"  ✗ Error updating dashboard for {website_name}: {str(e)}")
         # Don't raise - dashboard updates are not critical
 
 
 def remove_dashboard_widgets(website_name, dashboard_name):
     """
-    Remove monitoring widgets for a website from the CloudWatch dashboard
+    Remove a website's metrics from the aggregate dashboard widgets
     
-    Removes all widgets that reference the specified website name in their title.
+    Removes the metric lines for this website from the 3 aggregate widgets.
     """
-    print(f"Removing dashboard widgets for {website_name}")
+    print(f"Removing {website_name} from aggregate dashboard widgets")
     
     try:
         # Get current dashboard configuration
@@ -364,32 +319,46 @@ def remove_dashboard_widgets(website_name, dashboard_name):
         
         # Dashboard uses a widgets array
         widgets = dashboard_body.get('widgets', [])
-        original_count = len(widgets)
         
-        # Filter out widgets that contain the website name in their title
-        # This removes all three widgets (availability, latency, throughput) for this site
-        filtered_widgets = [
-            widget for widget in widgets
-            if not (
-                widget.get('properties', {}).get('title', '').startswith(f"{website_name} -")
-            )
-        ]
+        # Track how many metrics were removed
+        removed_count = 0
         
-        removed_count = original_count - len(filtered_widgets)
+        # Find and update the three aggregate widgets
+        for widget in widgets:
+            title = widget.get('properties', {}).get('title', '')
+            
+            # Check if this is one of our aggregate widgets
+            if title in ['Website Availability (All Sites)', 
+                        'Response Time - All Websites (ms)', 
+                        'Throughput - All Websites (bytes/s)']:
+                
+                metrics = widget['properties'].get('metrics', [])
+                original_count = len(metrics)
+                
+                # Filter out metrics for this website
+                # Metric format: [Namespace, MetricName, DimensionName, DimensionValue]
+                filtered_metrics = [
+                    metric for metric in metrics
+                    if not (len(metric) >= 4 and metric[3] == website_name)
+                ]
+                
+                if len(filtered_metrics) < original_count:
+                    widget['properties']['metrics'] = filtered_metrics
+                    removed_count += (original_count - len(filtered_metrics))
+                    print(f"  ✓ Removed {website_name} from '{title}'")
         
         if removed_count > 0:
-            # Update the dashboard with filtered widgets
-            dashboard_body['widgets'] = filtered_widgets
+            # Update the dashboard with filtered metrics
             cloudwatch.put_dashboard(
                 DashboardName=dashboard_name,
                 DashboardBody=json.dumps(dashboard_body)
             )
-            print(f"  ✓ Removed {removed_count} widgets from dashboard for {website_name}")
+            print(f"✓ Successfully removed {website_name} from dashboard ({removed_count} metrics removed)")
         else:
-            print(f"  ℹ No widgets found for {website_name}")
+            print(f"  ℹ No metrics found for {website_name} in dashboard")
         
     except cloudwatch.exceptions.ResourceNotFound:
         print(f"  ⚠ Dashboard '{dashboard_name}' not found - skipping widget removal")
     except Exception as e:
-        print(f"  ✗ Error removing dashboard widgets for {website_name}: {str(e)}")
+        print(f"  ✗ Error removing {website_name} from dashboard: {str(e)}")
         # Don't raise - dashboard updates are not critical

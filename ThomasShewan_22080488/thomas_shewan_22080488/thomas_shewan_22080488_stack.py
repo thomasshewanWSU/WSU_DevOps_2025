@@ -460,63 +460,48 @@ class ThomasShewan22080488Stack(Stack):
             targets.LambdaFunction(prod_alias)
         )
 
-        # Website Monitoring Setup-----------------------------
-        # COMMENTED OUT: Now handled dynamically by InfrastructureLambda
-        # The Lambda watches DynamoDB streams and creates alarms when sites are added via CRUD API
+        # Aggregate Dashboard Setup-----------------------------
+        # Create 3 empty aggregate widgets that will be populated dynamically
+        # InfrastructureLambda will add/remove website metrics to these widgets
         
-        # # Extract website names from configuration
-        # websites = [w["name"] for w in DEFAULT_WEBSITES]
+        dashboard.add_widgets(
+            # Availability widget - shows uptime status for all monitored sites
+            # Each website appears as a separate line on the graph
+            cloudwatch.GraphWidget(
+                title="Website Availability (All Sites)",
+                left=[],  # Start empty - InfrastructureLambda will add metrics
+                width=24,  # Full width for better visibility
+                height=6,
+                left_y_axis=cloudwatch.YAxisProps(
+                    min=0,
+                    max=1.1  # 0 = down, 1 = up
+                )
+            ),
 
-        # # Lists to collect metrics from all websites for aggregate dashboard widgets
-        # availability_metrics = []
-        # latency_metrics = []
-        # throughput_metrics = []
+            # Latency widget - shows response time for all monitored sites
+            # Each website appears as a separate line on the graph
+            cloudwatch.GraphWidget(
+                title="Response Time - All Websites (ms)",
+                left=[],  # Start empty - InfrastructureLambda will add metrics
+                width=12,
+                height=6,
+                left_y_axis=cloudwatch.YAxisProps(
+                    min=0
+                )
+            ),
 
-        # # Loop through each website and create monitoring resources
-        # for website in websites:
-        #     metrics = self.create_website_monitoring(website, dashboard, alarm_topic)
-        #     availability_metrics.append(metrics['availability'])
-        #     latency_metrics.append(metrics['latency'])
-        #     throughput_metrics.append(metrics['throughput'])
-
-        # # Aggregate Dashboard -----------------------
-        # # Create dashboard widgets that show metrics for all websites combined
-        
-        # dashboard.add_widgets(
-        #     # Availability widget - shows uptime status for all monitored sites
-        #     cloudwatch.GraphWidget(
-        #         title="Website Availability (All Sites)",
-        #         left=availability_metrics,
-        #         width=12,
-        #         height=6,
-        #         left_y_axis=cloudwatch.YAxisProps(
-        #             min=0,
-        #             max=1.1  # 0 = down, 1 = up
-        #         )
-        #     ),
-
-        #     # Latency widget - shows response time for all monitored sites
-        #     cloudwatch.GraphWidget(
-        #         title="Response Time - All Websites (ms)",
-        #         left=latency_metrics,
-        #         width=12,
-        #         height=6,
-        #         left_y_axis=cloudwatch.YAxisProps(
-        #             min=0
-        #         )
-        #     ),
-
-        #     # Throughput widget - shows data transfer rate for all monitored sites
-        #     cloudwatch.GraphWidget(
-        #         title="Throughput - All Websites (bytes/sec)",
-        #         left=throughput_metrics,
-        #         width=12,
-        #         height=6,
-        #         left_y_axis=cloudwatch.YAxisProps(
-        #             min=0
-        #         )
-        #     )
-        # )
+            # Throughput widget - shows data transfer rate for all monitored sites
+            # Each website appears as a separate line on the graph
+            cloudwatch.GraphWidget(
+                title="Throughput - All Websites (bytes/s)",
+                left=[],  # Start empty - InfrastructureLambda will add metrics
+                width=12,
+                height=6,
+                left_y_axis=cloudwatch.YAxisProps(
+                    min=0
+                )
+            )
+        )
 
         # Output deployment information
         print(f"Created monitoring Lambda: {canary_lambda.function_name}")
