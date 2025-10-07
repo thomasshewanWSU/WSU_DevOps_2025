@@ -461,15 +461,26 @@ class ThomasShewan22080488Stack(Stack):
         )
 
         # Aggregate Dashboard Setup-----------------------------
-        # Create 3 empty aggregate widgets that will be populated dynamically
+        # Create 3 aggregate widgets that will be populated dynamically
         # InfrastructureLambda will add/remove website metrics to these widgets
+        # Note: We need to provide at least one dummy metric to make the dashboard valid initially
+        
+        # Create a dummy metric that returns no data (non-existent dimension value)
+        dummy_metric = cloudwatch.Metric(
+            namespace=METRIC_NAMESPACE,
+            metric_name=METRIC_AVAILABILITY,
+            dimensions_map={DIM_WEBSITE: "__placeholder__"},
+            statistic="Average",
+            period=Duration.minutes(5),
+            label="No websites configured yet"
+        )
         
         dashboard.add_widgets(
             # Availability widget - shows uptime status for all monitored sites
             # Each website appears as a separate line on the graph
             cloudwatch.GraphWidget(
                 title="Website Availability (All Sites)",
-                left=[],  # Start empty - InfrastructureLambda will add metrics
+                left=[dummy_metric],  # Start with dummy - InfrastructureLambda will replace
                 width=24,  # Full width for better visibility
                 height=6,
                 left_y_axis=cloudwatch.YAxisProps(
@@ -482,7 +493,14 @@ class ThomasShewan22080488Stack(Stack):
             # Each website appears as a separate line on the graph
             cloudwatch.GraphWidget(
                 title="Response Time - All Websites (ms)",
-                left=[],  # Start empty - InfrastructureLambda will add metrics
+                left=[cloudwatch.Metric(
+                    namespace=METRIC_NAMESPACE,
+                    metric_name=METRIC_LATENCY,
+                    dimensions_map={DIM_WEBSITE: "__placeholder__"},
+                    statistic="Average",
+                    period=Duration.minutes(5),
+                    label="No websites configured yet"
+                )],  # Start with dummy - InfrastructureLambda will replace
                 width=12,
                 height=6,
                 left_y_axis=cloudwatch.YAxisProps(
@@ -494,7 +512,14 @@ class ThomasShewan22080488Stack(Stack):
             # Each website appears as a separate line on the graph
             cloudwatch.GraphWidget(
                 title="Throughput - All Websites (bytes/s)",
-                left=[],  # Start empty - InfrastructureLambda will add metrics
+                left=[cloudwatch.Metric(
+                    namespace=METRIC_NAMESPACE,
+                    metric_name=METRIC_THROUGHPUT,
+                    dimensions_map={DIM_WEBSITE: "__placeholder__"},
+                    statistic="Average",
+                    period=Duration.minutes(5),
+                    label="No websites configured yet"
+                )],  # Start with dummy - InfrastructureLambda will replace
                 width=12,
                 height=6,
                 left_y_axis=cloudwatch.YAxisProps(

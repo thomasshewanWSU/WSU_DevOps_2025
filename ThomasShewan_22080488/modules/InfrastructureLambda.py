@@ -272,6 +272,8 @@ def add_dashboard_widgets(website_name, dashboard_name):
         
         if availability_widget:
             metrics = availability_widget['properties'].get('metrics', [])
+            # Remove placeholder metrics (dimension value = "__placeholder__")
+            metrics = [m for m in metrics if not (len(m) >= 4 and m[3] == '__placeholder__')]
             # Add new metric line: [Namespace, MetricName, DimensionName, DimensionValue]
             metrics.append([METRIC_NAMESPACE, METRIC_AVAILABILITY, DIM_WEBSITE, website_name])
             availability_widget['properties']['metrics'] = metrics
@@ -279,12 +281,16 @@ def add_dashboard_widgets(website_name, dashboard_name):
         
         if latency_widget:
             metrics = latency_widget['properties'].get('metrics', [])
+            # Remove placeholder metrics
+            metrics = [m for m in metrics if not (len(m) >= 4 and m[3] == '__placeholder__')]
             metrics.append([METRIC_NAMESPACE, METRIC_LATENCY, DIM_WEBSITE, website_name])
             latency_widget['properties']['metrics'] = metrics
             print(f"  ✓ Added {website_name} to Latency widget")
         
         if throughput_widget:
             metrics = throughput_widget['properties'].get('metrics', [])
+            # Remove placeholder metrics
+            metrics = [m for m in metrics if not (len(m) >= 4 and m[3] == '__placeholder__')]
             metrics.append([METRIC_NAMESPACE, METRIC_THROUGHPUT, DIM_WEBSITE, website_name])
             throughput_widget['properties']['metrics'] = metrics
             print(f"  ✓ Added {website_name} to Throughput widget")
@@ -341,6 +347,19 @@ def remove_dashboard_widgets(website_name, dashboard_name):
                     metric for metric in metrics
                     if not (len(metric) >= 4 and metric[3] == website_name)
                 ]
+                
+                # If we removed all real websites, add a placeholder to keep dashboard valid
+                if len(filtered_metrics) == 0:
+                    # Determine which metric type based on title
+                    if 'Availability' in title:
+                        metric_name = METRIC_AVAILABILITY
+                    elif 'Response Time' in title or 'Latency' in title:
+                        metric_name = METRIC_LATENCY
+                    else:  # Throughput
+                        metric_name = METRIC_THROUGHPUT
+                    
+                    filtered_metrics = [[METRIC_NAMESPACE, metric_name, DIM_WEBSITE, '__placeholder__']]
+                    print(f"  ℹ Added placeholder to '{title}' (no websites remaining)")
                 
                 if len(filtered_metrics) < original_count:
                     widget['properties']['metrics'] = filtered_metrics
