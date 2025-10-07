@@ -184,7 +184,8 @@ class ThomasShewan22080488Stack(Stack):
             environment={
                 # ENV_WEBSITES: json.dumps(DEFAULT_WEBSITES),  # No longer needed - reading from DynamoDB
                 "TARGETS_TABLE_NAME": targets_table.table_name  
-            }
+            },
+            insights_version=lambda_.LambdaInsightsVersion.VERSION_1_0_229_0
         )
         
         # Grant CloudWatch permissions so Lambda can publish custom metrics
@@ -387,31 +388,10 @@ class ThomasShewan22080488Stack(Stack):
         # Create metric filter that extracts "Max Memory Used: XX MB" from REPORT lines
         # Lambda REPORT format: "REPORT RequestId: xxx Duration: 123.45 ms Billed Duration: 200 ms Memory Size: 128 MB Max Memory Used: 85 MB"
         # We use a simpler pattern that just extracts the number after "Max Memory Used:"
-        memory_metric_filter = logs.MetricFilter(
-            self, "MemoryUsageMetricFilter",
-            log_group=log_group,
-            metric_namespace=f"{stage_prefix}CustomLambdaMetrics",
-            metric_name="MemoryUsedMB",
-            filter_pattern=logs.FilterPattern.space_delimited(
-                "report_keyword", "request_id_keyword", "request_id",
-                "duration_keyword", "duration", "duration_unit",
-                "billed_duration_keyword", "billed_duration", "billed_duration_unit",
-                "memory_size_keyword", "memory_size", "memory_size_unit",
-                "max_memory_used_keyword", "max_memory_used", "max_memory_used_unit"
-            ).where_string("report_keyword", "=", "REPORT"),
-            metric_value="$max_memory_used",
-            default_value=0,
-            unit=cloudwatch.Unit.MEGABYTES,
-            dimensions={
-                "FunctionName": canary_lambda.function_name
-            }
-        )
-        
-        # Create metric from the filter
         max_memory_used_metric = cloudwatch.Metric(
-            namespace=f"{stage_prefix}CustomLambdaMetrics",
-            metric_name="MemoryUsedMB",
-            dimensions_map={"FunctionName": canary_lambda.function_name},
+            namespace="LambdaInsights",
+            metric_name="used_memory_max",
+            dimensions_map={"function_name": canary_lambda.function_name},
             statistic="Maximum",
             period=Duration.minutes(5)
         )
