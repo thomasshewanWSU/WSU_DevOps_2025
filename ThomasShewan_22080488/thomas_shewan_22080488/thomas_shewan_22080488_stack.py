@@ -460,7 +460,7 @@ class ThomasShewan22080488Stack(Stack):
         )
 
         CfnOutput(
-            self, "WebsiteDashboard", 
+            self, "WebsiteDashboardOutput", 
             value=website_dashboard.dashboard_name,
             description="Dynamic dashboard for website health monitoring"
         )
