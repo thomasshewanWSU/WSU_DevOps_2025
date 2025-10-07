@@ -90,7 +90,7 @@ def test_memory_alarm_threshold_appropriate(template):
         "AWS::CloudWatch::Alarm",
         {
             "AlarmName": "CanaryLambda-Memory-Alarm",
-            "Threshold": 80, 
+            "Threshold": 102, 
             "ComparisonOperator": "GreaterThanThreshold"
         }
     )

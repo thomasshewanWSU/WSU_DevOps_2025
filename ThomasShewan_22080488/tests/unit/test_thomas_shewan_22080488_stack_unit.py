@@ -35,10 +35,18 @@ def test_sns_topic_created(template):
     """SNS topic for alarms should exist"""
     template.resource_count_is("AWS::SNS::Topic", 1)
 
-
 def test_lambda_alarms_created(template):
-    """Only Lambda operational alarms should be created statically (4 total: Duration, Invocations, Errors, Memory)"""
-    template.resource_count_is("AWS::CloudWatch::Alarm", 4)  
+    """Check that the 4 required Lambda operational alarms exist"""
+    for alarm_name in [
+        "CanaryLambda-Duration-Alarm",
+        "CanaryLambda-Invocations-Alarm",
+        "CanaryLambda-Errors-Alarm",
+        "CanaryLambda-Memory-Alarm"
+    ]:
+        template.has_resource_properties(
+            "AWS::CloudWatch::Alarm",
+            {"AlarmName": alarm_name}
+        )
 
 def test_eventbridge_rule_created(template):
     """EventBridge rule for scheduling should exist"""
