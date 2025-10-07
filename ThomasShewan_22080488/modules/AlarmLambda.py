@@ -5,7 +5,7 @@ from datetime import datetime
 from constants import ENV_ALARM_LOG_TABLE
 
 dynamodb = boto3.resource('dynamodb')
-table = dynamodb.Table(os.environ[ENV_ALARM_LOG_TABLE])
+table = dynamodb.Table(os.environ['ALARM_LOG_TABLE'])
 
 def lambda_handler(event, context):
     for record in event['Records']:

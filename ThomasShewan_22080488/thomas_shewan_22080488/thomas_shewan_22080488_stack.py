@@ -13,7 +13,8 @@ from aws_cdk import (
     aws_dynamodb as dynamodb,
     aws_cloudwatch_actions as cloudwatch_actions,
     CfnOutput,
-    aws_apigateway as apigateway
+    aws_apigateway as apigateway,
+    aws_lambda_event_sources as lambda_event_sources
 )
 from constructs import Construct
 import os
@@ -42,7 +43,8 @@ class ThomasShewan22080488Stack(Stack):
                 type=dynamodb.AttributeType.STRING  # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_dynamodb/AttributeType.html
             ),
             removal_policy=RemovalPolicy.DESTROY,  # Clean up on delete: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk/RemovalPolicy.html
-            table_name="WebMonitoringTargets"
+            table_name="WebMonitoringTargets",
+            stream=dynamodb.StreamViewType.NEW_AND_OLD_IMAGES  # Enable stream for potential future use (e.g., triggers)
         )
 
         # Create IAM Role for API Gateway logging
@@ -171,7 +173,7 @@ class ThomasShewan22080488Stack(Stack):
             timeout=Duration.seconds(60), 
             description="Web health monitoring canary - crawls multiple websites",
             environment={
-                ENV_WEBSITES: json.dumps(DEFAULT_WEBSITES),
+                # ENV_WEBSITES: json.dumps(DEFAULT_WEBSITES),  # No longer needed - reading from DynamoDB
                 "TARGETS_TABLE_NAME": targets_table.table_name  
             }
         )
@@ -251,6 +253,50 @@ class ThomasShewan22080488Stack(Stack):
         alarm_topic.add_subscription(
             subscriptions.EmailSubscription("22080488@student.westernsydney.edu.au")
         )
+        
+        # Infrastructure Lambda - Dynamic Alarm Management ------------------------
+        # This Lambda watches DynamoDB streams and creates/deletes alarms automatically
+        # when websites are added/removed via the CRUD API
+        
+        infra_lambda = lambda_.Function(
+            self, "InfrastructureLambda",
+            runtime=lambda_.Runtime.PYTHON_3_11,
+            handler="InfrastructureLambda.lambda_handler",
+            code=lambda_.Code.from_asset("./modules"),
+            timeout=Duration.seconds(60),
+            description="Dynamically manages CloudWatch alarms based on DynamoDB changes",
+            environment={
+                "ALARM_TOPIC_ARN": alarm_topic.topic_arn,
+                "DASHBOARD_NAME": "WebsiteHealthMonitoring"
+            }
+        )
+        
+        # Grant permissions to manage CloudWatch alarms
+        infra_lambda.add_to_role_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "cloudwatch:PutMetricData",
+                    "cloudwatch:PutMetricAlarm",
+                    "cloudwatch:DeleteAlarms",
+                    "cloudwatch:DescribeAlarms"
+                ],
+                resources=["*"]
+            )
+        )
+        
+        # Connect Lambda to DynamoDB Stream to react to changes
+        infra_lambda.add_event_source(
+            lambda_event_sources.DynamoEventSource(
+                targets_table,
+                starting_position=lambda_.StartingPosition.LATEST,
+                batch_size=1,
+                retry_attempts=3
+            )
+        )
+        
+        print(f"Infrastructure Lambda: {infra_lambda.function_name}")
+        print("Will automatically manage alarms for dynamically added/removed websites")
         
         # CloudWatch Dashboard-------------------------------
         # Create a centralized dashboard for monitoring all metrics
@@ -412,165 +458,168 @@ class ThomasShewan22080488Stack(Stack):
         )
 
         # Website Monitoring Setup-----------------------------
-        # Create metrics and alarms for each monitored website
-        # This section processes all configured websites and sets up monitoring
+        # COMMENTED OUT: Now handled dynamically by InfrastructureLambda
+        # The Lambda watches DynamoDB streams and creates alarms when sites are added via CRUD API
         
-        # Extract website names from configuration
-        websites = [w["name"] for w in DEFAULT_WEBSITES]
+        # # Extract website names from configuration
+        # websites = [w["name"] for w in DEFAULT_WEBSITES]
 
-        # Lists to collect metrics from all websites for aggregate dashboard widgets
-        availability_metrics = []
-        latency_metrics = []
-        throughput_metrics = []
+        # # Lists to collect metrics from all websites for aggregate dashboard widgets
+        # availability_metrics = []
+        # latency_metrics = []
+        # throughput_metrics = []
 
-        # Loop through each website and create monitoring resources
-        for website in websites:
-            metrics = self.create_website_monitoring(website, dashboard, alarm_topic)
-            availability_metrics.append(metrics['availability'])
-            latency_metrics.append(metrics['latency'])
-            throughput_metrics.append(metrics['throughput'])
+        # # Loop through each website and create monitoring resources
+        # for website in websites:
+        #     metrics = self.create_website_monitoring(website, dashboard, alarm_topic)
+        #     availability_metrics.append(metrics['availability'])
+        #     latency_metrics.append(metrics['latency'])
+        #     throughput_metrics.append(metrics['throughput'])
 
-        # Aggregate Dashboard -----------------------
-        # Create dashboard widgets that show metrics for all websites combined
+        # # Aggregate Dashboard -----------------------
+        # # Create dashboard widgets that show metrics for all websites combined
         
-        dashboard.add_widgets(
-            # Availability widget - shows uptime status for all monitored sites
-            cloudwatch.GraphWidget(
-                title="Website Availability (All Sites)",
-                left=availability_metrics,
-                width=12,
-                height=6,
-                left_y_axis=cloudwatch.YAxisProps(
-                    min=0,
-                    max=1.1  # 0 = down, 1 = up
-                )
-            ),
+        # dashboard.add_widgets(
+        #     # Availability widget - shows uptime status for all monitored sites
+        #     cloudwatch.GraphWidget(
+        #         title="Website Availability (All Sites)",
+        #         left=availability_metrics,
+        #         width=12,
+        #         height=6,
+        #         left_y_axis=cloudwatch.YAxisProps(
+        #             min=0,
+        #             max=1.1  # 0 = down, 1 = up
+        #         )
+        #     ),
 
-            # Latency widget - shows response time for all monitored sites
-            cloudwatch.GraphWidget(
-                title="Response Time - All Websites (ms)",
-                left=latency_metrics,
-                width=12,
-                height=6,
-                left_y_axis=cloudwatch.YAxisProps(
-                    min=0
-                )
-            ),
+        #     # Latency widget - shows response time for all monitored sites
+        #     cloudwatch.GraphWidget(
+        #         title="Response Time - All Websites (ms)",
+        #         left=latency_metrics,
+        #         width=12,
+        #         height=6,
+        #         left_y_axis=cloudwatch.YAxisProps(
+        #             min=0
+        #         )
+        #     ),
 
-            # Throughput widget - shows data transfer rate for all monitored sites
-            cloudwatch.GraphWidget(
-                title="Throughput - All Websites (bytes/sec)",
-                left=throughput_metrics,
-                width=12,
-                height=6,
-                left_y_axis=cloudwatch.YAxisProps(
-                    min=0
-                )
-            )
-        )
+        #     # Throughput widget - shows data transfer rate for all monitored sites
+        #     cloudwatch.GraphWidget(
+        #         title="Throughput - All Websites (bytes/sec)",
+        #         left=throughput_metrics,
+        #         width=12,
+        #         height=6,
+        #         left_y_axis=cloudwatch.YAxisProps(
+        #             min=0
+        #         )
+        #     )
+        # )
 
         # Output deployment information
         print(f"Created monitoring Lambda: {canary_lambda.function_name}")
         print("Lambda will be triggered every 5 minutes via EventBridge")
         print(f"CloudWatch Dashboard: {dashboard.dashboard_name}")
+        print("Website alarms will be created dynamically via InfrastructureLambda when sites are added via CRUD API")
     
     # Create Website Monitoring-----------------------------
-    def create_website_monitoring(self, website_name: str, dashboard: cloudwatch.Dashboard, alarm_topic: sns.Topic):
-        """
-        Create comprehensive monitoring setup for a single website.
+    # COMMENTED OUT: This method is no longer needed as alarms are created dynamically
+    # by InfrastructureLambda when websites are added via the CRUD API
+    # def create_website_monitoring(self, website_name: str, dashboard: cloudwatch.Dashboard, alarm_topic: sns.Topic):
+    #     """
+    #     Create comprehensive monitoring setup for a single website.
         
-        This method creates:
-        - CloudWatch metrics for availability, latency, and throughput
-        - Alarms that trigger when metrics exceed thresholds
-        - Returns metrics for use in aggregate dashboard widgets
+    #     This method creates:
+    #     - CloudWatch metrics for availability, latency, and throughput
+    #     - Alarms that trigger when metrics exceed thresholds
+    #     - Returns metrics for use in aggregate dashboard widgets
         
-        Args:
-            website_name: The name of the website to monitor
-            dashboard: The CloudWatch dashboard to add widgets to
-            alarm_topic: The SNS topic to send alarm notifications to
+    #     Args:
+    #         website_name: The name of the website to monitor
+    #         dashboard: The CloudWatch dashboard to add widgets to
+    #         alarm_topic: The SNS topic to send alarm notifications to
             
-        Returns:
-            Dictionary containing the three metric objects
-        """
+    #     Returns:
+    #         Dictionary containing the three metric objects
+    #     """
         
-        # Define CloudWatch metrics for this website
-        # These metrics are published by the monitoring Lambda
+    #     # Define CloudWatch metrics for this website
+    #     # These metrics are published by the monitoring Lambda
         
-        # Availability: 1 if site is up, 0 if down
-        availability_metric = cloudwatch.Metric(
-            namespace=METRIC_NAMESPACE,
-            metric_name=METRIC_AVAILABILITY,
-            dimensions_map={DIM_WEBSITE: website_name},
-            statistic="Average",
-            period=Duration.minutes(5)
-        )
+    #     # Availability: 1 if site is up, 0 if down
+    #     availability_metric = cloudwatch.Metric(
+    #         namespace=METRIC_NAMESPACE,
+    #         metric_name=METRIC_AVAILABILITY,
+    #         dimensions_map={DIM_WEBSITE: website_name},
+    #         statistic="Average",
+    #         period=Duration.minutes(5)
+    #     )
         
-        # Latency: Response time in milliseconds
-        latency_metric = cloudwatch.Metric(
-            namespace=METRIC_NAMESPACE,
-            metric_name=METRIC_LATENCY,
-            dimensions_map={DIM_WEBSITE: website_name},
-            statistic="Average",
-            period=Duration.minutes(5)
-        )
+    #     # Latency: Response time in milliseconds
+    #     latency_metric = cloudwatch.Metric(
+    #         namespace=METRIC_NAMESPACE,
+    #         metric_name=METRIC_LATENCY,
+    #         dimensions_map={DIM_WEBSITE: website_name},
+    #         statistic="Average",
+    #         period=Duration.minutes(5)
+    #     )
         
-        # Throughput: Data transfer rate in bytes per second
-        throughput_metric = cloudwatch.Metric(
-            namespace=METRIC_NAMESPACE,
-            metric_name=METRIC_THROUGHPUT,
-            dimensions_map={DIM_WEBSITE: website_name},
-            statistic="Average",
-            period=Duration.minutes(5)
-        )
+    #     # Throughput: Data transfer rate in bytes per second
+    #     throughput_metric = cloudwatch.Metric(
+    #         namespace=METRIC_NAMESPACE,
+    #         metric_name=METRIC_THROUGHPUT,
+    #         dimensions_map={DIM_WEBSITE: website_name},
+    #         statistic="Average",
+    #         period=Duration.minutes(5)
+    #     )
         
-        # Availability Alarm
-        # Triggers when the site becomes unavailable
-        availability_alarm = cloudwatch.Alarm(
-            self, f"{website_name}AvailabilityAlarm",
-            alarm_name=f"{website_name}-Availability-Alarm",
-            alarm_description=f"Alert when {website_name} is unavailable",
-            metric=availability_metric,
-            threshold=1,  # Alert when availability < 1 (site is down)
-            comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
-            evaluation_periods=2,  # Check over 2 periods (10 minutes)
-            datapoints_to_alarm=2,  # Must be down for both periods to alarm
-            treat_missing_data=cloudwatch.TreatMissingData.BREACHING  # Missing data = alarm
-        )
-        availability_alarm.add_alarm_action(cloudwatch_actions.SnsAction(alarm_topic))
+    #     # Availability Alarm
+    #     # Triggers when the site becomes unavailable
+    #     availability_alarm = cloudwatch.Alarm(
+    #         self, f"{website_name}AvailabilityAlarm",
+    #         alarm_name=f"{website_name}-Availability-Alarm",
+    #         alarm_description=f"Alert when {website_name} is unavailable",
+    #         metric=availability_metric,
+    #         threshold=1,  # Alert when availability < 1 (site is down)
+    #         comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
+    #         evaluation_periods=2,  # Check over 2 periods (10 minutes)
+    #         datapoints_to_alarm=2,  # Must be down for both periods to alarm
+    #         treat_missing_data=cloudwatch.TreatMissingData.BREACHING  # Missing data = alarm
+    #     )
+    #     availability_alarm.add_alarm_action(cloudwatch_actions.SnsAction(alarm_topic))
         
-        # Latency Alarm with Anomaly Detection
-        latency_alarm = cloudwatch.AnomalyDetectionAlarm(
-            self, f"{website_name}LatencyAlarm",
-            alarm_name=f"{website_name}-Latency-Alarm", 
-            alarm_description=f"Alert when {website_name} latency is anomalous (outside 2 standard deviations)",
-            metric=latency_metric,
-            evaluation_periods=3,
-            datapoints_to_alarm=2,
-            std_devs=2,  # 2 standard deviations from normal
-            comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_LOWER_OR_GREATER_THAN_UPPER_THRESHOLD,
-            treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING
-        )
-        latency_alarm.add_alarm_action(cloudwatch_actions.SnsAction(alarm_topic))
+    #     # Latency Alarm with Anomaly Detection
+    #     latency_alarm = cloudwatch.AnomalyDetectionAlarm(
+    #         self, f"{website_name}LatencyAlarm",
+    #         alarm_name=f"{website_name}-Latency-Alarm", 
+    #         alarm_description=f"Alert when {website_name} latency is anomalous (outside 2 standard deviations)",
+    #         metric=latency_metric,
+    #         evaluation_periods=3,
+    #         datapoints_to_alarm=2,
+    #         std_devs=2,  # 2 standard deviations from normal
+    #         comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_LOWER_OR_GREATER_THAN_UPPER_THRESHOLD,
+    #         treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING
+    #     )
+    #     latency_alarm.add_alarm_action(cloudwatch_actions.SnsAction(alarm_topic))
 
-        # Throughput Alarm with Anomaly Detection
-        throughput_alarm = cloudwatch.AnomalyDetectionAlarm(
-            self, f"{website_name}ThroughputAlarm",
-            alarm_name=f"{website_name}-Throughput-Alarm",
-            alarm_description=f"Alert when {website_name} throughput is anomalous (outside 2 standard deviations)",
-            metric=throughput_metric,
-            evaluation_periods=3,
-            datapoints_to_alarm=2,
-            std_devs=2,  # 2 standard deviations from normal
-            comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_LOWER_OR_GREATER_THAN_UPPER_THRESHOLD,
-            treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING
-        )
-        throughput_alarm.add_alarm_action(cloudwatch_actions.SnsAction(alarm_topic))
+    #     # Throughput Alarm with Anomaly Detection
+    #     throughput_alarm = cloudwatch.AnomalyDetectionAlarm(
+    #         self, f"{website_name}ThroughputAlarm",
+    #         alarm_name=f"{website_name}-Throughput-Alarm",
+    #         alarm_description=f"Alert when {website_name} throughput is anomalous (outside 2 standard deviations)",
+    #         metric=throughput_metric,
+    #         evaluation_periods=3,
+    #         datapoints_to_alarm=2,
+    #         std_devs=2,  # 2 standard deviations from normal
+    #         comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_LOWER_OR_GREATER_THAN_UPPER_THRESHOLD,
+    #         treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING
+    #     )
+    #     throughput_alarm.add_alarm_action(cloudwatch_actions.SnsAction(alarm_topic))
 
-        # Return metrics for use in aggregate dashboard widgets
-        return {
-            'availability': availability_metric,
-            'latency': latency_metric, 
-            'throughput': throughput_metric
-        }
+    #     # Return metrics for use in aggregate dashboard widgets
+    #     return {
+    #         'availability': availability_metric,
+    #         'latency': latency_metric, 
+    #         'throughput': throughput_metric
+    #     }
     
 
