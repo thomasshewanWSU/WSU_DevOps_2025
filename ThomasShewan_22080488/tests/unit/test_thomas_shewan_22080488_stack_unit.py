@@ -109,3 +109,42 @@ def test_infrastructure_lambda_has_stream_source(template):
             "BatchSize": 1
         }
     )
+
+def test_memory_alarm_uses_correct_metric(template):
+    """Test that memory alarm uses Lambda Insights metric"""
+    template.has_resource_properties(
+        "AWS::CloudWatch::Alarm",
+        {
+            "AlarmName": "MonitoringLambda-Memory-Alarm",  
+            "MetricName": "used_memory_max",  
+            "Namespace": "LambdaInsights",  
+            "Statistic": "Maximum"
+        }
+    )
+
+def test_all_lambda_operational_alarms_exist(template):
+    """Test that all 4 required Lambda operational alarms exist"""
+    # Updated alarm names to match actual implementation
+    alarm_names = [
+        "MonitoringLambda-Duration-Alarm",
+        "MonitoringLambda-Invocations-Alarm",
+        "MonitoringLambda-Errors-Alarm",
+        "MonitoringLambda-Memory-Alarm"
+    ]
+    
+    for alarm_name in alarm_names:
+        template.has_resource_properties(
+            "AWS::CloudWatch::Alarm",
+            {"AlarmName": alarm_name}
+        )
+
+def test_memory_alarm_threshold_appropriate(template):
+    """Test that memory alarm threshold is set to reasonable value (80% of 128MB)"""
+    template.has_resource_properties(
+        "AWS::CloudWatch::Alarm",
+        {
+            "AlarmName": "MonitoringLambda-Memory-Alarm",  # Updated name
+            "Threshold": 102, 
+            "ComparisonOperator": "GreaterThanThreshold"
+        }
+    )
