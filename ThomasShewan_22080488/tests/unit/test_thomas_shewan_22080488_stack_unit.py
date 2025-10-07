@@ -1,24 +1,24 @@
-# import aws_cdk as cdk
-# import aws_cdk.assertions as assertions
-# import pytest
-# from thomas_shewan_22080488.thomas_shewan_22080488_stack import ThomasShewan22080488Stack
+import aws_cdk as cdk
+import aws_cdk.assertions as assertions
+import pytest
+from thomas_shewan_22080488.thomas_shewan_22080488_stack import ThomasShewan22080488Stack
 
 
-# @pytest.fixture
-# def stack():
-#     app = cdk.App()
-#     return ThomasShewan22080488Stack(app, "thomas-shewan-22080488")
+@pytest.fixture
+def stack():
+    app = cdk.App()
+    return ThomasShewan22080488Stack(app, "thomas-shewan-22080488")
 
 
-# @pytest.fixture
-# def template(stack):
-#     return assertions.Template.from_stack(stack)
+@pytest.fixture
+def template(stack):
+    return assertions.Template.from_stack(stack)
 
-# # Core Infrastructure Tests
+# Core Infrastructure Tests
 
-# def test_lambda_functions_created(template):
-#     """Four Lambda functions should be created: CRUD, Monitoring, DashboardManager, AlarmLogger"""
-#     template.resource_count_is("AWS::Lambda::Function", 3)  # ✅ This is correct
+def test_lambda_functions_created(template):
+    """Four Lambda functions should be created: CRUD, Monitoring, DashboardManager, AlarmLogger"""
+    template.resource_count_is("AWS::Lambda::Function", 3)  # ✅ This is correct
 
 
 # def test_cloudwatch_dashboards_created(template):
