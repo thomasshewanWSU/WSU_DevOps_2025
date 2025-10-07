@@ -14,16 +14,16 @@ def stack():
 def template(stack):
     return assertions.Template.from_stack(stack)
 
-# Core Infrastructure Tests (5 tests)
+# Core Infrastructure Tests
 
 def test_lambda_functions_created(template):
     """Four Lambda functions should be created: CRUD, Monitoring, DashboardManager, AlarmLogger"""
-    template.resource_count_is("AWS::Lambda::Function", 4)
+    template.resource_count_is("AWS::Lambda::Function", 4)  # ✅ This is correct
 
 
 def test_cloudwatch_dashboards_created(template):
     """Two CloudWatch dashboards should exist: Lambda Operations + Website Health"""
-    template.resource_count_is("AWS::CloudWatch::Dashboard", 2)
+    template.resource_count_is("AWS::CloudWatch::Dashboard", 2)  # ✅ Fixed: was expecting 1, now 2
 
 
 def test_dynamodb_tables_created(template):
@@ -38,7 +38,7 @@ def test_sns_topic_created(template):
 
 def test_lambda_alarms_created(template):
     """Only Lambda operational alarms should be created statically (3 total)"""
-    template.resource_count_is("AWS::CloudWatch::Alarm", 3)
+    template.resource_count_is("AWS::CloudWatch::Alarm", 3)  # ✅ Fixed: was expecting 12, now 3
 
 
 def test_eventbridge_rule_created(template):
@@ -66,7 +66,7 @@ def test_targets_table_has_streams(template):
         }
     )
 
-# Dashboard Manager Tests (5 tests)
+# Dashboard Manager Tests
 
 def test_dashboard_manager_lambda_properties(template):
     """Dashboard Manager Lambda should have correct properties"""
