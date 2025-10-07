@@ -6,6 +6,9 @@ import os
 import json
 import pytest
 from unittest.mock import patch, MagicMock
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../modules'))
 
 # Set required environment variables
 os.environ['ALARM_TOPIC_ARN'] = 'arn:aws:sns:test:123:topic'
