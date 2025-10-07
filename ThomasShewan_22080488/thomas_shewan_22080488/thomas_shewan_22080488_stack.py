@@ -357,7 +357,7 @@ class ThomasShewan22080488Stack(Stack):
             ),
             cloudwatch.GraphWidget(
                 title="Crawler Lambda Memory (%)",
-                left=[memory_utilization_metric],
+                left=[max_memory_used_metric],
                 width=6,
                 height=4
             )
