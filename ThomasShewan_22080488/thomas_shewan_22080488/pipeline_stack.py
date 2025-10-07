@@ -43,7 +43,7 @@ class PipelineStack(Stack):
 
         # Test Steps ----------------
         
-        # Unit Tests - basic validation before any deployment
+        # Unit Tests - runs before any deployment (fast, no AWS resources)
         unit_test = pipelines.ShellStep( 
             "UnitTests",
             input=source,
@@ -80,42 +80,37 @@ class PipelineStack(Stack):
         )
         
 
-        # Multi-Stage Pipeline with Progressive Testing ---------------------
-        # Each stage runs different tests and provides increasing confidence
+        # Optimized Pipeline: Test Early, Deploy Strategically ---------------------
+        # Strategy: Run cheap tests first (unit), then deploy once for expensive tests
         
-        # ALPHA Stage - Unit Tests
-        # Tests basic functionality before any AWS deployment
+        # Add unit tests to the synth step (runs before any deployment)
+        # This catches bugs early without wasting time/money on deployments
+        pipeline.add_wave(
+            "PreDeploymentValidation",
+            pre=[unit_test]  # Must pass before ANY deployment happens
+        )
+        
+        # ALPHA Stage - Testing Environment
+        # Deploy once, run functional + integration tests
+        # This validates the code works in a real AWS environment
         alpha = MyPipelineStage(self, 'alpha')
         pipeline.add_stage(
             alpha,
-            pre=[unit_test]  # Only unit tests (fast, no AWS resources needed)
-        )
-        
-        # BETA Stage - Functional Tests
-        # Tests Lambda functions in a deployed environment
-        beta = MyPipelineStage(self, 'beta')
-        pipeline.add_stage(
-            beta,
-            pre=[functional_test]  # Functional tests run against beta deployment
-        )
-        
-        # GAMMA Stage - Integration Tests
-        # Tests complete end-to-end workflows
-        gamma = MyPipelineStage(self, 'gamma')
-        pipeline.add_stage(
-            gamma,
-            pre=[integration_test]  # Integration tests run against gamma deployment
+            post=[
+                functional_test,    # Test Lambda functions in deployed environment
+                integration_test    # Test complete end-to-end workflows
+            ]
         )
         
         # PRODUCTION Stage - Manual Approval Required
-        # Final production deployment after all automated tests pass
+        # Only deploy to production after all tests pass in alpha
         prod = MyPipelineStage(self, 'prod')
         pipeline.add_stage(
             prod,
             pre=[
                 pipelines.ManualApprovalStep(
                     "ApproveProduction",
-                    comment="All tests passed. Approve deployment to production?"
+                    comment="✅ All tests passed in Alpha environment. Deploy to Production?"
                 )
             ]
         )

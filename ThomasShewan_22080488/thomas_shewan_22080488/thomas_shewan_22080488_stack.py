@@ -30,8 +30,12 @@ from modules.constants import (
 )
 
 class ThomasShewan22080488Stack(Stack):
-    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, stage_name: str = "prod", **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
+        
+        # Stage-specific resource naming to prevent conflicts across pipeline stages
+        # alpha, beta, gamma get prefixes; prod has no prefix
+        stage_prefix = f"{stage_name}-" if stage_name != "prod" else ""
         
         # CRUD API - DynamoDB Table for Target Management ------------------------
         # Create DynamoDB table to store web monitoring targets
@@ -44,7 +48,7 @@ class ThomasShewan22080488Stack(Stack):
                 type=dynamodb.AttributeType.STRING  # https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_dynamodb/AttributeType.html
             ),
             removal_policy=RemovalPolicy.DESTROY,  # Clean up on delete: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk/RemovalPolicy.html
-            table_name="WebMonitoringTargets",
+            table_name=f"{stage_prefix}WebMonitoringTargets",
             stream=dynamodb.StreamViewType.NEW_AND_OLD_IMAGES  # Enable stream for potential future use (e.g., triggers)
         )
 
@@ -70,7 +74,8 @@ class ThomasShewan22080488Stack(Stack):
             handler="CRUDLambda.lambda_handler",  
             code=lambda_.Code.from_asset("./modules"),  
             timeout=Duration.seconds(30),
-            description="CRUD operations for web monitoring targets",
+            function_name=f"{stage_prefix}WebMonitoringCRUD",
+            description=f"[{stage_name.upper()}] CRUD operations for web monitoring targets",
             environment={  
                 "TARGETS_TABLE_NAME": targets_table.table_name
             }
@@ -85,8 +90,8 @@ class ThomasShewan22080488Stack(Stack):
         # RestApi: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_apigateway/RestApi.html
         api = apigateway.RestApi(
             self, "TargetsApi",
-            rest_api_name="WebCrawlerTargetsAPI",
-            description="CRUD API for managing web monitoring targets",
+            rest_api_name=f"{stage_prefix}WebCrawlerTargetsAPI",
+            description=f"[{stage_name.upper()}] CRUD API for managing web monitoring targets",
             deploy_options=apigateway.StageOptions(
                 stage_name="prod",
                 metrics_enabled=True,
@@ -144,15 +149,16 @@ class ThomasShewan22080488Stack(Stack):
         CfnOutput(
             self, "ApiUrl",
             value=api.url,  # API Gateway URL: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_apigateway/RestApi.html#aws_cdk.aws_apigateway.RestApi.url
-            description="API Gateway URL for CRUD operations",
-            export_name="WebCrawlerApiUrl"  # Export for cross-stack references: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-stack-exports.html
+            description=f"[{stage_name.upper()}] API Gateway URL for CRUD operations",
+            export_name=f"{stage_prefix}WebCrawlerApiUrl"  # Export for cross-stack references: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-stack-exports.html
         )
         
         # Export table name for reference
         CfnOutput(
             self, "TargetsTableName",
             value=targets_table.table_name,
-            description="DynamoDB table name for targets"
+            description=f"[{stage_name.upper()}] DynamoDB table name for targets",
+            export_name=f"{stage_prefix}TargetsTableName"
         )
 
         # API Key output (commented out since API key is not being used)
@@ -172,8 +178,9 @@ class ThomasShewan22080488Stack(Stack):
             runtime=lambda_.Runtime.PYTHON_3_11,
             handler="MonitoringLambda.lambda_handler",
             code=lambda_.Code.from_asset("./modules"),
-            timeout=Duration.seconds(60), 
-            description="Web health monitoring canary - crawls multiple websites",
+            timeout=Duration.seconds(60),
+            function_name=f"{stage_prefix}WebMonitoring",
+            description=f"[{stage_name.upper()}] Web health monitoring canary - crawls multiple websites",
             environment={
                 # ENV_WEBSITES: json.dumps(DEFAULT_WEBSITES),  # No longer needed - reading from DynamoDB
                 "TARGETS_TABLE_NAME": targets_table.table_name  
@@ -213,7 +220,8 @@ class ThomasShewan22080488Stack(Stack):
         # Create SNS topic to send alarm notifications
         alarm_topic = sns.Topic(
             self, "AlarmNotificationTopic",
-            display_name="Web Monitoring Alarm Notifications"
+            topic_name=f"{stage_prefix}WebMonitoringAlarms",
+            display_name=f"[{stage_name.upper()}] Web Monitoring Alarm Notifications"
         )
 
         # Create DynamoDB table to store alarm history
@@ -227,6 +235,7 @@ class ThomasShewan22080488Stack(Stack):
                 name="Timestamp",
                 type=dynamodb.AttributeType.STRING
             ),
+            table_name=f"{stage_prefix}AlarmLog",
             removal_policy=RemovalPolicy.DESTROY  # For dev/demo only
         )
 
@@ -236,11 +245,12 @@ class ThomasShewan22080488Stack(Stack):
             runtime=lambda_.Runtime.PYTHON_3_11,
             handler="AlarmLambda.lambda_handler",
             code=lambda_.Code.from_asset("./modules"),
+            function_name=f"{stage_prefix}AlarmLogger",
             environment={
                 "ALARM_LOG_TABLE": alarm_log_table.table_name
             },
             timeout=Duration.seconds(30),
-            description="Logs alarm notifications to DynamoDB"
+            description=f"[{stage_name.upper()}] Logs alarm notifications to DynamoDB"
         )
 
         # Grant write permissions to the alarm logger Lambda
@@ -266,10 +276,11 @@ class ThomasShewan22080488Stack(Stack):
             handler="InfrastructureLambda.lambda_handler",
             code=lambda_.Code.from_asset("./modules"),
             timeout=Duration.seconds(60),
-            description="Dynamically manages CloudWatch alarms and dashboard widgets based on DynamoDB changes",
+            function_name=f"{stage_prefix}InfrastructureManager",
+            description=f"[{stage_name.upper()}] Dynamically manages CloudWatch alarms and dashboard widgets based on DynamoDB changes",
             environment={
                 "ALARM_TOPIC_ARN": alarm_topic.topic_arn,
-                "DASHBOARD_NAME": "WebsiteHealthMonitoring",
+                "DASHBOARD_NAME": f"{stage_prefix}WebsiteHealthMonitoring",
                 "DASHBOARD_REGION": self.region  # Region for dashboard widgets
             }
         )
@@ -307,7 +318,7 @@ class ThomasShewan22080488Stack(Stack):
         # Create a centralized dashboard for monitoring all metrics
         dashboard = cloudwatch.Dashboard(
             self, "WebHealthDashboard",
-            dashboard_name="WebsiteHealthMonitoring"
+            dashboard_name=f"{stage_prefix}WebsiteHealthMonitoring"
         )
 
         # Lambda Operational Metrics & Alarms----------------------
@@ -319,8 +330,8 @@ class ThomasShewan22080488Stack(Stack):
         duration_metric = prod_alias.metric_duration(statistic="Average", period=Duration.minutes(5))
         duration_alarm = cloudwatch.Alarm(
             self, "CanaryLambdaDurationAlarm",
-            alarm_name="CanaryLambda-Duration-Alarm",
-            alarm_description="Lambda average duration > 30000ms",
+            alarm_name=f"{stage_prefix}MonitoringLambda-Duration-Alarm",
+            alarm_description=f"[{stage_name.upper()}] Lambda average duration > 30000ms",
             metric=duration_metric,
             threshold=30000,  # Alert if average duration exceeds 30 seconds
             evaluation_periods=1,
@@ -335,8 +346,8 @@ class ThomasShewan22080488Stack(Stack):
         invocations_metric = prod_alias.metric_invocations(statistic="Sum", period=Duration.minutes(5))
         invocations_alarm = cloudwatch.Alarm(
             self, "CanaryLambdaInvocationsAlarm",
-            alarm_name="CanaryLambda-Invocations-Alarm",
-            alarm_description="Lambda invocations > 100 in 5 min",
+            alarm_name=f"{stage_prefix}MonitoringLambda-Invocations-Alarm",
+            alarm_description=f"[{stage_name.upper()}] Lambda invocations > 100 in 5 min",
             metric=invocations_metric,
             threshold=100,  # Alert if invoked more than 100 times in 5 minutes
             evaluation_periods=1,
@@ -351,8 +362,8 @@ class ThomasShewan22080488Stack(Stack):
         errors_metric = prod_alias.metric_errors(statistic="Sum", period=Duration.minutes(5))
         errors_alarm = cloudwatch.Alarm(
             self, "CanaryLambdaErrorsAlarm",
-            alarm_name="CanaryLambda-Errors-Alarm",
-            alarm_description="Lambda errors > 0 in 5 min",
+            alarm_name=f"{stage_prefix}MonitoringLambda-Errors-Alarm",
+            alarm_description=f"[{stage_name.upper()}] Lambda errors > 0 in 5 min",
             metric=errors_metric,
             threshold=0,  # Alert on any errors
             evaluation_periods=1,
@@ -374,14 +385,23 @@ class ThomasShewan22080488Stack(Stack):
         )
         
         # Create metric filter that extracts "Max Memory Used: XX MB" from REPORT lines
+        # Lambda REPORT format: "REPORT RequestId: xxx Duration: 123.45 ms Billed Duration: 200 ms Memory Size: 128 MB Max Memory Used: 85 MB"
+        # We use a simpler pattern that just extracts the number after "Max Memory Used:"
         memory_metric_filter = logs.MetricFilter(
             self, "MemoryUsageMetricFilter",
             log_group=log_group,
-            metric_namespace="CustomLambdaMetrics",
+            metric_namespace=f"{stage_prefix}CustomLambdaMetrics",
             metric_name="MemoryUsedMB",
-            filter_pattern=logs.FilterPattern.literal('[report_type="REPORT", request_id_label, request_id, duration_label, duration, duration_unit, billed_duration_label, billed_duration, billed_duration_unit, memory_size_label, memory_size, memory_size_unit, max_memory_used_label, max_memory_used, max_memory_used_unit, ...]'),
+            filter_pattern=logs.FilterPattern.space_delimited(
+                "report_keyword", "request_id_keyword", "request_id",
+                "duration_keyword", "duration", "duration_unit",
+                "billed_duration_keyword", "billed_duration", "billed_duration_unit",
+                "memory_size_keyword", "memory_size", "memory_size_unit",
+                "max_memory_used_keyword", "max_memory_used", "max_memory_used_unit"
+            ).where_string("report_keyword", "=", "REPORT"),
             metric_value="$max_memory_used",
             default_value=0,
+            unit=cloudwatch.Unit.MEGABYTES,
             dimensions={
                 "FunctionName": canary_lambda.function_name
             }
@@ -389,7 +409,7 @@ class ThomasShewan22080488Stack(Stack):
         
         # Create metric from the filter
         max_memory_used_metric = cloudwatch.Metric(
-            namespace="CustomLambdaMetrics",
+            namespace=f"{stage_prefix}CustomLambdaMetrics",
             metric_name="MemoryUsedMB",
             dimensions_map={"FunctionName": canary_lambda.function_name},
             statistic="Maximum",
@@ -399,8 +419,8 @@ class ThomasShewan22080488Stack(Stack):
         # Alert if memory usage exceeds 80% of allocated memory (128MB default = ~102MB threshold)
         memory_alarm = cloudwatch.Alarm(
             self, "CanaryLambdaMemoryAlarm",
-            alarm_name="CanaryLambda-Memory-Alarm",
-            alarm_description="Lambda memory usage > 102MB (80% of 128MB)",
+            alarm_name=f"{stage_prefix}MonitoringLambda-Memory-Alarm",
+            alarm_description=f"[{stage_name.upper()}] Lambda memory usage > 102MB (80% of 128MB)",
             metric=max_memory_used_metric,
             threshold=102,  # 80% of default 128MB allocation
             evaluation_periods=2,
@@ -477,8 +497,9 @@ class ThomasShewan22080488Stack(Stack):
         # Create EventBridge rule to run every 5 minutes
         monitoring_rule = events.Rule(
             self, "MonitoringScheduleRule",
+            rule_name=f"{stage_prefix}WebMonitoringSchedule",
             schedule=events.Schedule.rate(Duration.minutes(5)),
-            description="Trigger web monitoring every 5 minutes"
+            description=f"[{stage_name.upper()}] Trigger web monitoring every 5 minutes"
         )
         
         # Set the monitoring Lambda as the target for the scheduled rule
