@@ -24,7 +24,7 @@ def test_memory_alarm_configuration(template):
     template.has_resource_properties(
         "AWS::CloudWatch::Alarm",
         {
-            "AlarmName": "CanaryLambda-Memory-Alarm",
+            "AlarmName": "MonitoringLambda-Memory-Alarm",
             "AlarmDescription": "Lambda memory usage > 102MB (80% of 128MB)",
             "Threshold": 102,
             "ComparisonOperator": "GreaterThanThreshold",
@@ -35,63 +35,40 @@ def test_memory_alarm_configuration(template):
     )
 
 def test_memory_alarm_uses_correct_metric(template):
-    """Test that memory alarm uses CustomLambdaMetrics/MemoryUsedMB metric from CloudWatch Logs"""
+    """Test that memory alarm uses Lambda Insights metric"""
     template.has_resource_properties(
         "AWS::CloudWatch::Alarm",
         {
-            "AlarmName": "CanaryLambda-Memory-Alarm",
-            "MetricName": "MemoryUsedMB",
-            "Namespace": "CustomLambdaMetrics",
+            "AlarmName": "MonitoringLambda-Memory-Alarm",  
+            "MetricName": "used_memory_max",  
+            "Namespace": "LambdaInsights",  
             "Statistic": "Maximum"
-        }
-    )
-
-def test_memory_alarm_threshold_appropriate(template):
-    """Test that memory alarm threshold is set to reasonable value (102MB)"""
-    template.has_resource_properties(
-        "AWS::CloudWatch::Alarm",
-        {
-            "AlarmName": "CanaryLambda-Memory-Alarm",
-            "Threshold": 102,
-            "ComparisonOperator": "GreaterThanThreshold"
         }
     )
 
 def test_all_lambda_operational_alarms_exist(template):
     """Test that all 4 required Lambda operational alarms exist"""
-    # Duration alarm
-    template.has_resource_properties(
-        "AWS::CloudWatch::Alarm",
-        {"AlarmName": "CanaryLambda-Duration-Alarm"}
-    )
+    # Updated alarm names to match actual implementation
+    alarm_names = [
+        "MonitoringLambda-Duration-Alarm",
+        "MonitoringLambda-Invocations-Alarm",
+        "MonitoringLambda-Errors-Alarm",
+        "MonitoringLambda-Memory-Alarm"
+    ]
     
-    # Invocations alarm
-    template.has_resource_properties(
-        "AWS::CloudWatch::Alarm", 
-        {"AlarmName": "CanaryLambda-Invocations-Alarm"}
-    )
-    
-    # Errors alarm
-    template.has_resource_properties(
-        "AWS::CloudWatch::Alarm",
-        {"AlarmName": "CanaryLambda-Errors-Alarm"}
-    )
-    
-    # Memory alarm
-    template.has_resource_properties(
-        "AWS::CloudWatch::Alarm",
-        {"AlarmName": "CanaryLambda-Memory-Alarm"}
-    )
-
+    for alarm_name in alarm_names:
+        template.has_resource_properties(
+            "AWS::CloudWatch::Alarm",
+            {"AlarmName": alarm_name}
+        )
 
 def test_memory_alarm_threshold_appropriate(template):
-    """Test that memory alarm threshold is set to reasonable value (80%)"""
+    """Test that memory alarm threshold is set to reasonable value (80% of 128MB)"""
     template.has_resource_properties(
         "AWS::CloudWatch::Alarm",
         {
-            "AlarmName": "CanaryLambda-Memory-Alarm",
+            "AlarmName": "MonitoringLambda-Memory-Alarm",  # Updated name
             "Threshold": 102, 
             "ComparisonOperator": "GreaterThanThreshold"
         }
     )
-

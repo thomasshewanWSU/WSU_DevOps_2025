@@ -53,11 +53,12 @@ def test_sns_topic_created(template):
 
 def test_lambda_alarms_created(template):
     """Check that the 4 required Lambda operational alarms exist"""
+    # Updated alarm names to match actual implementation
     for alarm_name in [
-        "CanaryLambda-Duration-Alarm",
-        "CanaryLambda-Invocations-Alarm",
-        "CanaryLambda-Errors-Alarm",
-        "CanaryLambda-Memory-Alarm"
+        "MonitoringLambda-Duration-Alarm",
+        "MonitoringLambda-Invocations-Alarm",
+        "MonitoringLambda-Errors-Alarm",
+        "MonitoringLambda-Memory-Alarm"
     ]:
         template.has_resource_properties(
             "AWS::CloudWatch::Alarm",
