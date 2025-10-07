@@ -268,7 +268,7 @@ class ThomasShewan22080488Stack(Stack):
             environment={
                 "ALARM_TOPIC_ARN": alarm_topic.topic_arn,
                 "DASHBOARD_NAME": "WebsiteHealthMonitoring",
-                "AWS_REGION": self.region  # Lambda's AWS region for dashboard widgets
+                "DASHBOARD_REGION": self.region  # Region for dashboard widgets
             }
         )
         

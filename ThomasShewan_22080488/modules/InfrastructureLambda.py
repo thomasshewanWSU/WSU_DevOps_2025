@@ -276,7 +276,7 @@ def add_dashboard_widgets(website_name, dashboard_name):
                     ],
                     "period": 300,
                     "stat": "Average",
-                    "region": os.environ.get('AWS_REGION', 'ap-southeast-2'),
+                    "region": os.environ.get('DASHBOARD_REGION', 'ap-southeast-2'),
                     "title": f"{website_name} - Availability",
                     "yAxis": {
                         "left": {
@@ -298,7 +298,7 @@ def add_dashboard_widgets(website_name, dashboard_name):
                     ],
                     "period": 300,
                     "stat": "Average",
-                    "region": os.environ.get('AWS_REGION', 'ap-southeast-2'),
+                    "region": os.environ.get('DASHBOARD_REGION', 'ap-southeast-2'),
                     "title": f"{website_name} - Latency (ms)",
                     "yAxis": {
                         "left": {
@@ -319,7 +319,7 @@ def add_dashboard_widgets(website_name, dashboard_name):
                     ],
                     "period": 300,
                     "stat": "Average",
-                    "region": os.environ.get('AWS_REGION', 'ap-southeast-2'),
+                    "region": os.environ.get('DASHBOARD_REGION', 'ap-southeast-2'),
                     "title": f"{website_name} - Throughput (bytes/s)",
                     "yAxis": {
                         "left": {
