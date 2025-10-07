@@ -108,7 +108,16 @@ def test_lambda_alarm_exists(cloudwatch_client):
         response = cloudwatch_client.describe_alarms()
         # Filter for Lambda alarms (contain "CanaryLambda" in name)
         lambda_alarms = [a for a in response['MetricAlarms'] if 'CanaryLambda' in a['AlarmName']]
-        # Should have at least one Lambda alarm (Duration, Invocations, or Errors)
-        assert len(lambda_alarms) > 0, "No CanaryLambda alarms found"
+        # Should have 4 Lambda alarms (Duration, Invocations, Errors, Memory)
+        assert len(lambda_alarms) >= 4, f"Expected at least 4 CanaryLambda alarms, found {len(lambda_alarms)}"
+        
+        # Check for specific alarms
+        alarm_names = [a['AlarmName'] for a in lambda_alarms]
+        expected_alarms = ['Duration', 'Invocations', 'Errors', 'Memory']
+        
+        for expected in expected_alarms:
+            matching_alarms = [name for name in alarm_names if expected in name]
+            assert len(matching_alarms) > 0, f"No alarm found containing '{expected}'"
+            
     except Exception as e:
         pytest.skip(f"Lambda alarms not available yet: {str(e)}")

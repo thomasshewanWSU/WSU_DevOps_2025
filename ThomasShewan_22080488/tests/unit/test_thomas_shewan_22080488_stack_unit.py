@@ -37,9 +37,8 @@ def test_sns_topic_created(template):
 
 
 def test_lambda_alarms_created(template):
-    """Only Lambda operational alarms should be created statically (3 total)"""
-    template.resource_count_is("AWS::CloudWatch::Alarm", 3)  # ✅ Fixed: was expecting 12, now 3
-
+    """Only Lambda operational alarms should be created statically (4 total: Duration, Invocations, Errors, Memory)"""
+    template.resource_count_is("AWS::CloudWatch::Alarm", 4)  
 
 def test_eventbridge_rule_created(template):
     """EventBridge rule for scheduling should exist"""
@@ -126,5 +125,18 @@ def test_crud_lambda_can_invoke_dashboard_manager(template):
                     })
                 ])
             }
+        }
+    )
+
+
+def test_memory_alarm_created(template):
+    """Memory utilization alarm should be created for Lambda monitoring"""
+    template.has_resource_properties(
+        "AWS::CloudWatch::Alarm",
+        {
+            "AlarmName": "CanaryLambda-Memory-Alarm",
+            "AlarmDescription": "Lambda memory utilization > 80%",
+            "Threshold": 80,
+            "ComparisonOperator": "GreaterThanThreshold"
         }
     )

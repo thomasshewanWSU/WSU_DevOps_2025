@@ -311,6 +311,30 @@ class ThomasShewan22080488Stack(Stack):
         )
         errors_alarm.add_alarm_action(cloudwatch_actions.SnsAction(alarm_topic))
 
+        # Memory Utilization Metric & Alarm
+        # Tracks Lambda memory usage as percentage of allocated memory
+        max_memory_used_metric = cloudwatch.Metric(
+            namespace="AWS/Lambda",
+            metric_name="MaxMemoryUsed", 
+            dimensions_map={"FunctionName": canary_lambda.function_name},
+            statistic="Maximum",
+            period=Duration.minutes(5)
+        )
+        
+        # Alert if memory usage exceeds 80% of allocated memory (128MB default = ~102MB threshold)
+        memory_alarm = cloudwatch.Alarm(
+            self, "CanaryLambdaMemoryAlarm",
+            alarm_name="CanaryLambda-Memory-Alarm",
+            alarm_description="Lambda memory usage > 102MB (80% of 128MB)",
+            metric=max_memory_used_metric,
+            threshold=102,  # 80% of default 128MB allocation
+            evaluation_periods=2,
+            datapoints_to_alarm=2,
+            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+            treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING
+        )
+        memory_alarm.add_alarm_action(cloudwatch_actions.SnsAction(alarm_topic))
+
         # Add Lambda operational widgets to dashboard
         dashboard.add_widgets(
             cloudwatch.GraphWidget(
@@ -328,6 +352,12 @@ class ThomasShewan22080488Stack(Stack):
             cloudwatch.GraphWidget(
                 title="Crawler Lambda Errors",
                 left=[errors_metric],
+                width=6,
+                height=4
+            ),
+            cloudwatch.GraphWidget(
+                title="Crawler Lambda Memory (%)",
+                left=[memory_utilization_metric],
                 width=6,
                 height=4
             )
