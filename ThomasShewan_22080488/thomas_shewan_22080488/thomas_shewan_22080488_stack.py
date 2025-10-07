@@ -300,12 +300,20 @@ class ThomasShewan22080488Stack(Stack):
                 retry_attempts=3
             )
         )
-        
+
+        crud_lambda.add_environment("DASHBOARD_MANAGER_FUNCTION_NAME", dashboard_manager.function_name)
+        crud_lambda.add_to_role_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=["lambda:InvokeFunction"],
+                resources=[dashboard_manager.function_arn]
+            )
+        )
         # CloudWatch Dashboard-------------------------------
         # Create a centralized dashboard for monitoring all metrics
-        dashboard = cloudwatch.Dashboard(
-            self, "WebHealthDashboard",
-            dashboard_name="WebsiteHealthMonitoring"
+        LambdaOperationsDashboard = cloudwatch.Dashboard(
+            self, "LambdaOperationsDashboard",
+            dashboard_name="LambdaOperationsDashboard"
         )
 
         # Lambda Operational Metrics & Alarms----------------------
@@ -361,7 +369,7 @@ class ThomasShewan22080488Stack(Stack):
         errors_alarm.add_alarm_action(cloudwatch_actions.SnsAction(alarm_topic))
 
         # Add Lambda operational widgets to dashboard
-        dashboard.add_widgets(
+        LambdaOperationsDashboard.add_widgets(
             cloudwatch.GraphWidget(
                 title="Crawler Lambda Duration (ms)",
                 left=[duration_metric],
@@ -434,42 +442,37 @@ class ThomasShewan22080488Stack(Stack):
         # Create a dashboard that will be populated dynamically by the DashboardManagerLambda
         # The dashboard will be updated automatically when targets are added/removed via CRUD API
         
-        dashboard = cloudwatch.Dashboard(
-            self, "WebHealthDashboard",
+        website_dashboard = cloudwatch.Dashboard(
+            self, "WebsiteDashboard",
             dashboard_name="WebsiteHealthMonitoring"
         )
 
-        # Add initial Lambda operational widgets to dashboard
-        dashboard.add_widgets(
-            cloudwatch.GraphWidget(
-                title="Crawler Lambda Duration (ms)",
-                left=[duration_metric],
-                width=6,
-                height=4
-            ),
-            cloudwatch.GraphWidget(
-                title="Crawler Lambda Invocations",
-                left=[invocations_metric],
-                width=6,
-                height=4
-            ),
-            cloudwatch.GraphWidget(
-                title="Crawler Lambda Errors",
-                left=[errors_metric],
-                width=6,
-                height=4
-            )
+        # No widgets added here - DashboardManagerLambda will manage all content
+
+        # Update DashboardManager environment to use the website dashboard
+        dashboard_manager.add_environment("DASHBOARD_NAME", website_dashboard.dashboard_name)
+
+        # Output dashboard information
+        CfnOutput(
+            self, "LambdaDashboard",
+            value=LambdaOperationsDashboard.dashboard_name,
+            description="Static dashboard for Lambda operations monitoring"
         )
 
-        # Output dashboard manager information
+        CfnOutput(
+            self, "WebsiteDashboard", 
+            value=website_dashboard.dashboard_name,
+            description="Dynamic dashboard for website health monitoring"
+        )
+
         CfnOutput(
             self, "DashboardManagerLambda",
             value=dashboard_manager.function_name,
             description="Lambda function that manages dynamic dashboard and alarms"
         )
-
         # Output deployment information
         print(f"Created monitoring Lambda: {canary_lambda.function_name}")
         print("Lambda will be triggered every 5 minutes via EventBridge")
-        print(f"CloudWatch Dashboard: {dashboard.dashboard_name}")
+        print(f"CloudWatch Dashboard: {LambdaOperationsDashboard.dashboard_name}")
+        print(f"Website Health Dashboard: {website_dashboard.dashboard_name}") 
         print("Dashboard and alarms will be managed dynamically by DashboardManagerLambda")
