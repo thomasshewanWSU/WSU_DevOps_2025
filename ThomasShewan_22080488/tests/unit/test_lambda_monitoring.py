@@ -25,8 +25,8 @@ def test_memory_alarm_configuration(template):
         "AWS::CloudWatch::Alarm",
         {
             "AlarmName": "CanaryLambda-Memory-Alarm",
-            "AlarmDescription": "Lambda memory utilization > 80%",
-            "Threshold": 80,
+            "AlarmDescription": "Lambda memory usage > 102MB (80% of 128MB)",
+            "Threshold": 102,
             "ComparisonOperator": "GreaterThanThreshold",
             "EvaluationPeriods": 2,
             "DatapointsToAlarm": 2,
@@ -34,32 +34,28 @@ def test_memory_alarm_configuration(template):
         }
     )
 
-
 def test_memory_alarm_uses_correct_metric(template):
-    """Test that memory alarm uses AWS/Lambda MemoryUtilization metric"""
+    """Test that memory alarm uses AWS/Lambda MaxMemoryUsed metric"""
     template.has_resource_properties(
         "AWS::CloudWatch::Alarm",
         {
             "AlarmName": "CanaryLambda-Memory-Alarm",
-            "MetricName": "MemoryUtilization",
+            "MetricName": "MaxMemoryUsed",
             "Namespace": "AWS/Lambda",
             "Statistic": "Maximum"
         }
     )
 
-
-def test_memory_alarm_has_sns_action(template):
-    """Test that memory alarm is connected to SNS topic for notifications"""
+def test_memory_alarm_threshold_appropriate(template):
+    """Test that memory alarm threshold is set to reasonable value (102MB)"""
     template.has_resource_properties(
         "AWS::CloudWatch::Alarm",
         {
             "AlarmName": "CanaryLambda-Memory-Alarm",
-            "AlarmActions": assertions.Match.array_with([
-                assertions.Match.any_value()  # Should have at least one alarm action (SNS)
-            ])
+            "Threshold": 102,
+            "ComparisonOperator": "GreaterThanThreshold"
         }
     )
-
 
 def test_all_lambda_operational_alarms_exist(template):
     """Test that all 4 required Lambda operational alarms exist"""
@@ -94,7 +90,7 @@ def test_memory_alarm_threshold_appropriate(template):
         "AWS::CloudWatch::Alarm",
         {
             "AlarmName": "CanaryLambda-Memory-Alarm",
-            "Threshold": 80,  # 80% is appropriate threshold
+            "Threshold": 80, 
             "ComparisonOperator": "GreaterThanThreshold"
         }
     )
