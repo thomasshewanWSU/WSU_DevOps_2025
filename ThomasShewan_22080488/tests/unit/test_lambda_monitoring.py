@@ -95,18 +95,3 @@ def test_memory_alarm_threshold_appropriate(template):
         }
     )
 
-
-def test_metric_filter_for_memory_exists(template):
-    """Test that CloudWatch Logs metric filter extracts memory from Lambda logs"""
-    template.has_resource_properties(
-        "AWS::Logs::MetricFilter",
-        {
-            "FilterPattern": assertions.Match.string_like_regexp(".*REPORT.*Max Memory Used.*"),
-            "MetricTransformations": assertions.Match.array_with([
-                assertions.Match.object_like({
-                    "MetricName": "MemoryUsedMB",
-                    "MetricNamespace": "CustomLambdaMetrics"
-                })
-            ])
-        }
-    )

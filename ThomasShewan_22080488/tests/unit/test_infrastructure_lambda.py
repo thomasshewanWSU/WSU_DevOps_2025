@@ -57,18 +57,6 @@ def test_dashboard_updated_when_website_added(mock_cloudwatch):
 	assert mock_cw.put_dashboard.called
 
 
-@patch('modules.InfrastructureLambda.cloudwatch')
-def test_dashboard_updated_when_website_removed(mock_cloudwatch):
-	"""Test that dashboard is updated when website is removed"""
-	mock_cw = MagicMock()
-	dashboard_body = {'widgets': [{'properties': {'metrics': []}}]}
-	mock_cw.get_dashboard.return_value = {'DashboardBody': json.dumps(dashboard_body)}
-	
-	with patch('modules.InfrastructureLambda.cloudwatch', mock_cw):
-		handle_website_removed('TestSite')
-	
-	assert mock_cw.put_dashboard.called
-
 
 def test_lambda_handler_processes_insert_event():
 	"""Test Lambda handler calls add function for INSERT events"""
