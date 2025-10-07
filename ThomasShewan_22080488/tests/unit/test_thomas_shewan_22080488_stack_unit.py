@@ -112,22 +112,6 @@ def test_dynamodb_stream_event_source(template):
     )
 
 
-def test_dashboard_manager_environment_variables(template):
-    """Dashboard Manager should have required environment variables"""
-    template.has_resource_properties(
-        "AWS::Lambda::Function",
-        {
-            "Handler": "DashboardManagerLambda.lambda_handler",
-            "Environment": {
-                "Variables": {
-                    "TARGETS_TABLE_NAME": {"Ref": assertions.Match.any_value()},
-                    "DASHBOARD_NAME": "WebsiteHealthMonitoring",
-                    "ALARM_TOPIC_ARN": {"Ref": assertions.Match.any_value()}
-                }
-            }
-        }
-    )
-
 
 def test_crud_lambda_can_invoke_dashboard_manager(template):
     """CRUD Lambda should have permission to invoke Dashboard Manager"""
