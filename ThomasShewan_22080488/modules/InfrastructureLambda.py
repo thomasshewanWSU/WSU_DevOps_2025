@@ -274,8 +274,9 @@ def add_dashboard_widgets(website_name, dashboard_name):
             metrics = availability_widget['properties'].get('metrics', [])
             # Remove placeholder metrics (dimension value = "__placeholder__")
             metrics = [m for m in metrics if not (len(m) >= 4 and m[3] == '__placeholder__')]
-            # Add new metric line: [Namespace, MetricName, DimensionName, DimensionValue]
-            metrics.append([METRIC_NAMESPACE, METRIC_AVAILABILITY, DIM_WEBSITE, website_name])
+            # Add new metric line with explicit label
+            # Format: [Namespace, MetricName, DimensionName, DimensionValue, {label: "Label"}]
+            metrics.append([METRIC_NAMESPACE, METRIC_AVAILABILITY, DIM_WEBSITE, website_name, {"label": website_name}])
             availability_widget['properties']['metrics'] = metrics
             print(f"  ✓ Added {website_name} to Availability widget")
         
@@ -283,7 +284,7 @@ def add_dashboard_widgets(website_name, dashboard_name):
             metrics = latency_widget['properties'].get('metrics', [])
             # Remove placeholder metrics
             metrics = [m for m in metrics if not (len(m) >= 4 and m[3] == '__placeholder__')]
-            metrics.append([METRIC_NAMESPACE, METRIC_LATENCY, DIM_WEBSITE, website_name])
+            metrics.append([METRIC_NAMESPACE, METRIC_LATENCY, DIM_WEBSITE, website_name, {"label": website_name}])
             latency_widget['properties']['metrics'] = metrics
             print(f"  ✓ Added {website_name} to Latency widget")
         
@@ -291,7 +292,7 @@ def add_dashboard_widgets(website_name, dashboard_name):
             metrics = throughput_widget['properties'].get('metrics', [])
             # Remove placeholder metrics
             metrics = [m for m in metrics if not (len(m) >= 4 and m[3] == '__placeholder__')]
-            metrics.append([METRIC_NAMESPACE, METRIC_THROUGHPUT, DIM_WEBSITE, website_name])
+            metrics.append([METRIC_NAMESPACE, METRIC_THROUGHPUT, DIM_WEBSITE, website_name, {"label": website_name}])
             throughput_widget['properties']['metrics'] = metrics
             print(f"  ✓ Added {website_name} to Throughput widget")
         

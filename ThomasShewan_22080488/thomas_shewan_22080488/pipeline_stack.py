@@ -43,7 +43,7 @@ class PipelineStack(Stack):
 
         # Test Steps ----------------
         
-        # Unit Tests - run before any deployment
+        # Unit Tests - basic validation before any deployment
         unit_test = pipelines.ShellStep( 
             "UnitTests",
             input=source,
@@ -80,19 +80,42 @@ class PipelineStack(Stack):
         )
         
 
-        # Single Production Stage with All Tests as Quality Gates  ---------------------
-        # Combined into one stage due to free tier limits
-
-        # Tests run sequentially as pre-deployment checks
-        # If any test fails, deployment stops
+        # Multi-Stage Pipeline with Progressive Testing ---------------------
+        # Each stage runs different tests and provides increasing confidence
         
+        # ALPHA Stage - Unit Tests
+        # Tests basic functionality before any AWS deployment
+        alpha = MyPipelineStage(self, 'alpha')
+        pipeline.add_stage(
+            alpha,
+            pre=[unit_test]  # Only unit tests (fast, no AWS resources needed)
+        )
+        
+        # BETA Stage - Functional Tests
+        # Tests Lambda functions in a deployed environment
+        beta = MyPipelineStage(self, 'beta')
+        pipeline.add_stage(
+            beta,
+            pre=[functional_test]  # Functional tests run against beta deployment
+        )
+        
+        # GAMMA Stage - Integration Tests
+        # Tests complete end-to-end workflows
+        gamma = MyPipelineStage(self, 'gamma')
+        pipeline.add_stage(
+            gamma,
+            pre=[integration_test]  # Integration tests run against gamma deployment
+        )
+        
+        # PRODUCTION Stage - Manual Approval Required
+        # Final production deployment after all automated tests pass
         prod = MyPipelineStage(self, 'prod')
         pipeline.add_stage(
-            prod, 
+            prod,
             pre=[
-                unit_test,           # Step 1: Unit tests must pass
-                functional_test,     # Step 2: Functional tests must pass
-                integration_test,    # Step 3: Integration tests must pass
-                pipelines.ManualApprovalStep("Approve-Deploy-To-Prod")  # Step 4: Manual approval
+                pipelines.ManualApprovalStep(
+                    "ApproveProduction",
+                    comment="All tests passed. Approve deployment to production?"
+                )
             ]
         )

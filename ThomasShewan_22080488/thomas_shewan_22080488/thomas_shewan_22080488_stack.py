@@ -12,6 +12,7 @@ from aws_cdk import (
     aws_sns_subscriptions as subscriptions,
     aws_dynamodb as dynamodb,
     aws_cloudwatch_actions as cloudwatch_actions,
+    aws_logs as logs,
     CfnOutput,
     aws_apigateway as apigateway,
     aws_lambda_event_sources as lambda_event_sources
@@ -99,41 +100,42 @@ class ThomasShewan22080488Stack(Stack):
             )
         )
 
-         # Create API Key for security
-        api_key = apigateway.ApiKey(
-            self, "WebMonitoringApiKey",
-            description="API key for web monitoring CRUD operations"
-        )
-
-        # Create minimal Usage Plan to make API key work
-        usage_plan = apigateway.UsagePlan(
-            self, "WebMonitoringUsagePlan",
-            name="WebMonitoringUsagePlan",
-            api_stages=[
-                apigateway.UsagePlanPerApiStage(
-                    api=api,
-                    stage=api.deployment_stage
-                )
-            ]
-        )
-
-        # Associate API Key with Usage Plan
-        usage_plan.add_api_key(api_key)
+        # API Key Setup (OPTIONAL - commented out for easier testing)
+        # Uncomment the lines below to require API key authentication
+        
+        # api_key = apigateway.ApiKey(
+        #     self, "WebMonitoringApiKey",
+        #     description="API key for web monitoring CRUD operations"
+        # )
+        
+        # usage_plan = apigateway.UsagePlan(
+        #     self, "WebMonitoringUsagePlan",
+        #     name="WebMonitoringUsagePlan",
+        #     api_stages=[
+        #         apigateway.UsagePlanPerApiStage(
+        #             api=api,
+        #             stage=api.deployment_stage
+        #         )
+        #     ]
+        # )
+        
+        # usage_plan.add_api_key(api_key)
+        
         # Lambda Integration with proxy mode
         # LambdaIntegration: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_apigateway/LambdaIntegration.html
         # Proxy integration: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html
         crud_integration = apigateway.LambdaIntegration(crud_lambda, proxy=True)
 
-        # Define RESTful API Routes with API Key Required ------------------------
+        # Define RESTful API Routes (no API key required) ------------------------
         targets_resource = api.root.add_resource("targets")
-        targets_resource.add_method("GET", crud_integration, api_key_required=True)    # List all targets
-        targets_resource.add_method("POST", crud_integration, api_key_required=True)   # Create new target
+        targets_resource.add_method("GET", crud_integration)    # List all targets
+        targets_resource.add_method("POST", crud_integration)   # Create new target
 
         # Path parameter resource: https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-method-settings-method-request.html
         target_resource = targets_resource.add_resource("{id}")  # {id} is a path parameter
-        target_resource.add_method("GET", crud_integration, api_key_required=True)     # Get single target
-        target_resource.add_method("PUT", crud_integration, api_key_required=True)     # Update target
-        target_resource.add_method("DELETE", crud_integration, api_key_required=True)  # Delete target
+        target_resource.add_method("GET", crud_integration)     # Get single target
+        target_resource.add_method("PUT", crud_integration)     # Update target
+        target_resource.add_method("DELETE", crud_integration)  # Delete target
 
         
         # CloudFormation Outputs ------------------------
@@ -153,13 +155,13 @@ class ThomasShewan22080488Stack(Stack):
             description="DynamoDB table name for targets"
         )
 
-        # Output the API Key ID so you can get the actual key value
-        CfnOutput(
-            self, "ApiKeyId",
-            value=api_key.key_id,
-            description="API Key ID - use this to get the actual key value",
-            export_name="WebMonitoringApiKeyId"
-        )
+        # API Key output (commented out since API key is not being used)
+        # CfnOutput(
+        #     self, "ApiKeyId",
+        #     value=api_key.key_id,
+        #     description="API Key ID - use this to get the actual key value",
+        #     export_name="WebMonitoringApiKeyId"
+        # )
 
         # Web Monitoring Lambda Function------------------------
         # Create the main Lambda function that performs health checks on websites
@@ -361,10 +363,34 @@ class ThomasShewan22080488Stack(Stack):
         errors_alarm.add_alarm_action(cloudwatch_actions.SnsAction(alarm_topic))
 
         # Memory Utilization Metric & Alarm
-        # Tracks Lambda memory usage as percentage of allocated memory
+        # AWS doesn't publish MaxMemoryUsed automatically - we need to extract it from logs
+        # Lambda logs memory at end of execution: "REPORT RequestId: ... Memory Size: 128 MB Max Memory Used: 85 MB"
+        
+        # Create metric filter to extract memory usage from Lambda logs
+        # Get the Lambda's log group
+        log_group = logs.LogGroup.from_log_group_name(
+            self, "MonitoringLambdaLogGroup",
+            log_group_name=f"/aws/lambda/{canary_lambda.function_name}"
+        )
+        
+        # Create metric filter that extracts "Max Memory Used: XX MB" from REPORT lines
+        memory_metric_filter = logs.MetricFilter(
+            self, "MemoryUsageMetricFilter",
+            log_group=log_group,
+            metric_namespace="CustomLambdaMetrics",
+            metric_name="MemoryUsedMB",
+            filter_pattern=logs.FilterPattern.literal('[report_type="REPORT", request_id_label, request_id, duration_label, duration, duration_unit, billed_duration_label, billed_duration, billed_duration_unit, memory_size_label, memory_size, memory_size_unit, max_memory_used_label, max_memory_used, max_memory_used_unit, ...]'),
+            metric_value="$max_memory_used",
+            default_value=0,
+            dimensions={
+                "FunctionName": canary_lambda.function_name
+            }
+        )
+        
+        # Create metric from the filter
         max_memory_used_metric = cloudwatch.Metric(
-            namespace="AWS/Lambda",
-            metric_name="MaxMemoryUsed", 
+            namespace="CustomLambdaMetrics",
+            metric_name="MemoryUsedMB",
             dimensions_map={"FunctionName": canary_lambda.function_name},
             statistic="Maximum",
             period=Duration.minutes(5)

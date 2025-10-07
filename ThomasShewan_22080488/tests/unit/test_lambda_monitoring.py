@@ -35,13 +35,13 @@ def test_memory_alarm_configuration(template):
     )
 
 def test_memory_alarm_uses_correct_metric(template):
-    """Test that memory alarm uses AWS/Lambda MaxMemoryUsed metric"""
+    """Test that memory alarm uses CustomLambdaMetrics/MemoryUsedMB metric from CloudWatch Logs"""
     template.has_resource_properties(
         "AWS::CloudWatch::Alarm",
         {
             "AlarmName": "CanaryLambda-Memory-Alarm",
-            "MetricName": "MaxMemoryUsed",
-            "Namespace": "AWS/Lambda",
+            "MetricName": "MemoryUsedMB",
+            "Namespace": "CustomLambdaMetrics",
             "Statistic": "Maximum"
         }
     )
@@ -92,5 +92,21 @@ def test_memory_alarm_threshold_appropriate(template):
             "AlarmName": "CanaryLambda-Memory-Alarm",
             "Threshold": 102, 
             "ComparisonOperator": "GreaterThanThreshold"
+        }
+    )
+
+
+def test_metric_filter_for_memory_exists(template):
+    """Test that CloudWatch Logs metric filter extracts memory from Lambda logs"""
+    template.has_resource_properties(
+        "AWS::Logs::MetricFilter",
+        {
+            "FilterPattern": assertions.Match.string_like_regexp(".*REPORT.*Max Memory Used.*"),
+            "MetricTransformations": assertions.Match.array_with([
+                assertions.Match.object_like({
+                    "MetricName": "MemoryUsedMB",
+                    "MetricNamespace": "CustomLambdaMetrics"
+                })
+            ])
         }
     )
