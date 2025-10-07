@@ -106,24 +106,28 @@ def update_dashboard_with_targets(cloudwatch, targets):
     except Exception as e:
         print(f"Error updating dashboard: {str(e)}")
         raise
-
+    
 def generate_dashboard_body(targets):
-    """Generate CloudWatch dashboard JSON with widgets for all targets"""
+    """Generate CloudWatch dashboard JSON with 3 simple graphs for all sites"""
+    if not targets:
+        return {"widgets": []}
+    
     widgets = []
     
-    # Overview widget - all websites availability
+    # 1. Availability Graph - All Sites
+    availability_metrics = []
+    for target in targets:
+        availability_metrics.append(["WebMonitoring/Health", "Availability", "Website", target['name']])
+    
     widgets.append({
         "type": "metric",
         "x": 0, "y": 0, "width": 24, "height": 6,
         "properties": {
-            "metrics": [
-                ["WebMonitoring/Health", "Availability", "Website", target['name']]
-                for target in targets
-            ],
+            "metrics": availability_metrics,
             "view": "timeSeries",
             "stacked": False,
             "region": "ap-southeast-2",
-            "title": "Website Availability Overview",
+            "title": "Website Availability (All Sites)",
             "period": 300,
             "yAxis": {
                 "left": {"min": 0, "max": 1}
@@ -131,54 +135,47 @@ def generate_dashboard_body(targets):
         }
     })
     
-    # Individual widgets for each website (3 columns)
-    y_position = 6
-    for i, target in enumerate(targets):
-        x_position = (i % 3) * 8
-        if i % 3 == 0 and i > 0:
-            y_position += 6
-            
-        website_name = target['name']
-        
-        # Availability + Latency widget
-        widgets.append({
-            "type": "metric",
-            "x": x_position, "y": y_position, "width": 8, "height": 6,
-            "properties": {
-                "metrics": [
-                    ["WebMonitoring/Health", "Availability", "Website", website_name, {"yAxis": "left"}],
-                    [".", "Latency", ".", ".", {"yAxis": "right"}]
-                ],
-                "view": "timeSeries",
-                "stacked": False,
-                "region": "ap-southeast-2",
-                "title": f"{website_name} - Health",
-                "period": 300,
-                "yAxis": {
-                    "left": {"min": 0, "max": 1},
-                    "right": {"min": 0}
-                }
-            }
-        })
+    # 2. Latency Graph - All Sites
+    latency_metrics = []
+    for target in targets:
+        latency_metrics.append(["WebMonitoring/Health", "Latency", "Website", target['name']])
     
-    # Throughput comparison (if we have targets)
-    if targets:
-        y_position += 6
-        widgets.append({
-            "type": "metric",
-            "x": 0, "y": y_position, "width": 24, "height": 6,
-            "properties": {
-                "metrics": [
-                    ["WebMonitoring/Health", "Throughput", "Website", target['name']]
-                    for target in targets
-                ],
-                "view": "timeSeries",
-                "stacked": False,
-                "region": "ap-southeast-2",
-                "title": "Throughput Comparison",
-                "period": 300
+    widgets.append({
+        "type": "metric",
+        "x": 0, "y": 6, "width": 24, "height": 6,
+        "properties": {
+            "metrics": latency_metrics,
+            "view": "timeSeries",
+            "stacked": False,
+            "region": "ap-southeast-2",
+            "title": "Website Latency (All Sites)",
+            "period": 300,
+            "yAxis": {
+                "left": {"min": 0}
             }
-        })
+        }
+    })
+    
+    # 3. Throughput Graph - All Sites
+    throughput_metrics = []
+    for target in targets:
+        throughput_metrics.append(["WebMonitoring/Health", "Throughput", "Website", target['name']])
+    
+    widgets.append({
+        "type": "metric",
+        "x": 0, "y": 12, "width": 24, "height": 6,
+        "properties": {
+            "metrics": throughput_metrics,
+            "view": "timeSeries",
+            "stacked": False,
+            "region": "ap-southeast-2",
+            "title": "Website Throughput (All Sites)",
+            "period": 300,
+            "yAxis": {
+                "left": {"min": 0}
+            }
+        }
+    })
     
     return {"widgets": widgets}
 
