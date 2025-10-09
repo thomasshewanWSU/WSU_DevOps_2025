@@ -2,7 +2,8 @@ from aws_cdk import (
     Stack,
     Stage,
     SecretValue,
-    pipelines
+    pipelines,
+    aws_iam as iam
 )
 from constructs import Construct
 from .pipeline_stage import MyPipelineStage
@@ -93,6 +94,31 @@ class PipelineStack(Stack):
                 "python -m pip install --upgrade pip",
                 "python -m pip install -r requirements-dev.txt",
                 "python -m pytest tests/functional/ -v"
+            ],
+            # Grant permissions to read CloudFormation stacks and invoke Lambda functions
+            role_policy_statements=[
+                iam.PolicyStatement(
+                    actions=[
+                        "cloudformation:DescribeStacks",
+                        "cloudformation:ListStacks"
+                    ],
+                    resources=["*"]
+                ),
+                iam.PolicyStatement(
+                    actions=[
+                        "lambda:InvokeFunction",
+                        "lambda:GetFunction",
+                        "lambda:ListEventSourceMappings"
+                    ],
+                    resources=["*"]
+                ),
+                iam.PolicyStatement(
+                    actions=[
+                        "cloudwatch:ListMetrics",
+                        "cloudwatch:GetMetricData"
+                    ],
+                    resources=["*"]
+                )
             ]
         )
         
@@ -107,6 +133,32 @@ class PipelineStack(Stack):
                 "python -m pip install --upgrade pip",
                 "python -m pip install -r requirements-dev.txt",
                 "python -m pytest tests/integration/ -v"
+            ],
+            # Grant permissions to interact with deployed resources
+            role_policy_statements=[
+                iam.PolicyStatement(
+                    actions=[
+                        "cloudformation:DescribeStacks",
+                        "cloudformation:ListStacks"
+                    ],
+                    resources=["*"]
+                ),
+                iam.PolicyStatement(
+                    actions=[
+                        "dynamodb:GetItem",
+                        "dynamodb:PutItem",
+                        "dynamodb:DeleteItem",
+                        "dynamodb:Scan"
+                    ],
+                    resources=["*"]
+                ),
+                iam.PolicyStatement(
+                    actions=[
+                        "cloudwatch:DescribeAlarms",
+                        "cloudwatch:ListMetrics"
+                    ],
+                    resources=["*"]
+                )
             ]
         )
         
