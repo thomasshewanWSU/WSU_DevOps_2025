@@ -130,7 +130,7 @@ def handle_website_added(website_name, alarm_topic_arn, dashboard_name):
         # Anomaly Detection guide: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Create_Anomaly_Detection_Alarm.html
         cloudwatch.put_metric_alarm(
             AlarmName=f"{website_name}-Latency-Alarm",
-            AlarmDescription=f"Alert when {website_name} latency is anomalous (outside 2 standard deviations)",
+            AlarmDescription=f"Alert when {website_name} latency is anomalous (outside 4 standard deviations)",
             Metrics=[
                 {
                     'Id': 'm1',  # Metric identifier for the actual latency metric
@@ -147,12 +147,12 @@ def handle_website_added(website_name, alarm_topic_arn, dashboard_name):
                 },
                 {
                     'Id': 'ad1',  # Anomaly detection band identifier
-                    'Expression': 'ANOMALY_DETECTION_BAND(m1, 2)',  # 2 std deviations from learned baseline
+                    'Expression': 'ANOMALY_DETECTION_BAND(m1, 4)',  # 4 std deviations from learned baseline (more tolerant)
                     'Label': 'Latency (expected)'
                 }
             ],
-            EvaluationPeriods=3,  # Check over 3 periods (15 minutes)
-            DatapointsToAlarm=2,  # Must breach for 2 out of 3 periods (M out of N)
+            EvaluationPeriods=4,  # Check over 4 periods (20 minutes)
+            DatapointsToAlarm=3,  # Must breach for 3 out of 4 periods (M out of N) - more tolerant
             ComparisonOperator='LessThanLowerOrGreaterThanUpperThreshold',  # Breach either bound
             ThresholdMetricId='ad1',  # Compare m1 against ad1 band
             TreatMissingData='notBreaching',  # Missing data = don't alarm (new site learning period)
@@ -165,7 +165,7 @@ def handle_website_added(website_name, alarm_topic_arn, dashboard_name):
         # Detects both unusually high (potential DDoS) and low (content truncation) throughput
         cloudwatch.put_metric_alarm(
             AlarmName=f"{website_name}-Throughput-Alarm",
-            AlarmDescription=f"Alert when {website_name} throughput is anomalous (outside 2 standard deviations)",
+            AlarmDescription=f"Alert when {website_name} throughput is anomalous (outside 4 standard deviations)",
             Metrics=[
                 {
                     'Id': 'm1',  # Metric identifier for the actual throughput metric
@@ -182,12 +182,12 @@ def handle_website_added(website_name, alarm_topic_arn, dashboard_name):
                 },
                 {
                     'Id': 'ad1',  # Anomaly detection band identifier
-                    'Expression': 'ANOMALY_DETECTION_BAND(m1, 2)',  # 2 std deviations from learned baseline
+                    'Expression': 'ANOMALY_DETECTION_BAND(m1, 4)',  # 4 std deviations from learned baseline (more tolerant)
                     'Label': 'Throughput (expected)'
                 }
             ],
-            EvaluationPeriods=3,  # Check over 3 periods (15 minutes)
-            DatapointsToAlarm=2,  # Must breach for 2 out of 3 periods (M out of N)
+            EvaluationPeriods=4,  # Check over 4 periods (20 minutes)
+            DatapointsToAlarm=3,  # Must breach for 3 out of 4 periods (M out of N) - more tolerant
             ComparisonOperator='LessThanLowerOrGreaterThanUpperThreshold',  # Breach either bound
             ThresholdMetricId='ad1',  # Compare m1 against ad1 band
             TreatMissingData='notBreaching',  # Missing data = don't alarm (new site learning period)
