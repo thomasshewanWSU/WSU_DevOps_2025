@@ -198,15 +198,6 @@ curl -X DELETE https://your-api.execute-api.ap-southeast-2.amazonaws.com/prod/ta
 
 ---
 
-## Performance Metrics
-
-Based on integration testing with DynamoDB:
-- **CREATE**: ~200-500ms
-- **READ**: ~100-300ms  
-- **UPDATE**: ~200-500ms
-- **DELETE**: ~100-300ms
-- **LIST**: ~300-1000ms (depends on item count)
-
 ## Error Handling
 
 All errors return consistent JSON format:
@@ -223,24 +214,25 @@ All errors return consistent JSON format:
 - `404 Not Found`: Resource doesn't exist
 - `500 Internal Server Error`: Server-side error
 
-## Integration with Monitoring Lambda
+## Integration with Monitoring System
 
-The monitoring Lambda automatically reads enabled targets from this API:
-- Queries DynamoDB for `enabled=true` targets every 5 minutes
-- Falls back to environment variable `WEBSITES` if DynamoDB is empty
-- Publishes metrics to CloudWatch for each target
+When you add/update/delete a target via this API:
 
-To add a website to monitoring:
+1. **CRUD Lambda** writes to DynamoDB `WebMonitoringTargets` table
+2. **DynamoDB Stream** triggers Infrastructure Lambda
+3. **Infrastructure Lambda** automatically:
+   - Creates 3 CloudWatch alarms (availability, latency, throughput)
+   - Adds website metrics to dashboard widgets
+4. **Monitoring Lambda** picks up target on next scheduled run (within 5 minutes)
+
+**Example - Add monitored website:**
 ```bash
-curl -X POST https://your-api.execute-api.ap-southeast-2.amazonaws.com/prod/targets \
+curl -X POST $API_URL/targets \
   -H "Content-Type: application/json" \
-  -d '{"name": "MyWebsite", "url": "https://mywebsite.com", "enabled": true}'
+  -d '{"name": "MyWebsite", "url": "https://mywebsite.com"}'
 ```
 
-The site will be monitored within 5 minutes.
-
-## Rate Limits
-Currently no rate limiting implemented. Consider adding for production use.
+Alarms are created immediately. Monitoring starts within 5 minutes.
 
 ## Support
 For issues or questions: 22080488@student.westernsydney.edu.au

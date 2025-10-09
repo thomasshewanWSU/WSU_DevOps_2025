@@ -1,25 +1,19 @@
-"""
-CRUD Lambda Function for Web Monitoring Targets
-Handles Create, Read, Update, Delete operations on DynamoDB
-
-AWS CDK Stack Reference: thomas_shewan_22080488/thomas_shewan_22080488_stack.py
-- Lambda Function: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_lambda/Function.html
-- DynamoDB Table: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_dynamodb/Table.html
-- API Gateway RestApi: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_apigateway/RestApi.html
-- Lambda Integration: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_apigateway/LambdaIntegration.html
-"""
 import json
 import os
 import uuid
 from datetime import datetime 
 import boto3
 
-# Initialize DynamoDB client
+# Initialize DynamoDB resource for table operations
 # DynamoDB Resource API: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb.html#service-resource
 dynamodb = boto3.resource('dynamodb')
-# Environment variables from CDK: https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_lambda/Function.html#aws_cdk.aws_lambda.Function.add_environment
+
+# Get table name from environment variable (set by CDK during deployment)
+# Environment variables documentation: https://docs.aws.amazon.com/lambda/latest/dg/configuration-envvars.html
 table_name = os.environ['TARGETS_TABLE_NAME']
-# Table Resource: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/table/index.html
+
+# Get table resource for performing operations
+# Table Resource API: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/table/index.html
 table = dynamodb.Table(table_name)
 
 def lambda_handler(event, context):

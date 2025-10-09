@@ -2,13 +2,32 @@
 Functional Tests for Web Monitoring Stack
 Tests Lambda functions in deployed AWS environment (alpha stage)
 
-These tests verify that individual Lambda functions work correctly
-when deployed to AWS with actual services (DynamoDB, CloudWatch, etc.)
+Test Level: Functional Testing
+- Tests individual Lambda functions with real AWS services
+- Requires deployed infrastructure (runs against alpha stage)
+- Validates Lambda execution, DynamoDB operations, CloudWatch metrics
+
+AWS Services Tested:
+- AWS Lambda: Direct function invocation
+  Documentation: https://docs.aws.amazon.com/lambda/latest/dg/welcome.html
+- Amazon DynamoDB: Read/write operations
+  Documentation: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Introduction.html
+- Amazon CloudWatch: Metric publication
+  Documentation: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/WhatIsCloudWatch.html
+- AWS CloudFormation: Stack output retrieval
+  Documentation: https://docs.aws.amazon.com/cloudformation/latest/userguide/Welcome.html
+
+Test Strategy:
+1. Invoke Lambda functions directly (not through API Gateway)
+2. Verify function execution succeeds
+3. Check DynamoDB for data changes
+4. Verify CloudWatch metrics are published
+5. Validate Lambda configuration (environment variables, event sources)
+
 """
 import json
 import boto3
 import pytest
-from datetime import datetime
 
 # Get stack outputs from CloudFormation
 cloudformation = boto3.client('cloudformation')
@@ -22,30 +41,67 @@ STACK_NAME = 'WebMonitoringPipeline-alpha-ThomasShewan22080488Stack'
 
 @pytest.fixture(scope='module')
 def stack_outputs():
-    """Retrieve CloudFormation stack outputs"""
+    """
+    Retrieve CloudFormation stack outputs for testing.
+    
+    Stack outputs contain resource identifiers needed for testing:
+    - TargetsTableName: DynamoDB table name
+    - ApiUrl: API Gateway endpoint
+    
+    CloudFormation API:
+    - describe_stacks: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/describe_stacks.html
+    
+    Returns:
+        dict: Mapping of output keys to values
+    
+    Raises:
+        pytest.fail: If stack doesn't exist or outputs are unavailable
+    """
     try:
         response = cloudformation.describe_stacks(StackName=STACK_NAME)
         outputs = response['Stacks'][0]['Outputs']
         return {output['OutputKey']: output['OutputValue'] for output in outputs}
     except Exception as e:
-        pytest.skip(f"Stack not found or not deployed: {e}")
+        pytest.fail(f"Failed to get stack outputs: {str(e)}")
 
 
 @pytest.fixture(scope='module')
 def targets_table(stack_outputs):
-    """Get DynamoDB targets table"""
+    """
+    Get reference to DynamoDB targets table for direct data validation.
+    
+    Returns:
+        boto3.resources.factory.dynamodb.Table: DynamoDB table resource
+    
+    DynamoDB Table resource:
+    https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/table/index.html
+    """
     table_name = stack_outputs.get('TargetsTableName')
     if not table_name:
-        pytest.skip("TargetsTableName output not found")
+        pytest.fail("TargetsTableName not found in stack outputs")
     return dynamodb.Table(table_name)
 
 
 def test_crud_lambda_creates_target(stack_outputs):
     """
-    Test 1: Verify CRUD Lambda can create a target
-    Invokes the Lambda directly and checks DynamoDB
+    Test 1: Verify CRUD Lambda can create a target.
+    
+    Test Flow:
+    1. Invoke CRUD Lambda directly with POST request payload
+    2. Lambda writes to DynamoDB
+    3. Verify response contains new target with generated ID
+    
+    This tests:
+    - Lambda function execution
+    - DynamoDB write permissions
+    - UUID generation
+    - Response formatting
+    
+    Lambda Invoke API:
+    https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/invoke.html
     """
-    # Invoke CRUD Lambda with POST request
+    # Construct Lambda event payload (simulates API Gateway proxy integration)
+    # Event format: https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html#api-gateway-simple-proxy-for-lambda-input-format
     payload = {
         'httpMethod': 'POST',
         'path': '/targets',
@@ -56,17 +112,20 @@ def test_crud_lambda_creates_target(stack_outputs):
         'pathParameters': None
     }
     
+    # Invoke Lambda synchronously (RequestResponse mode)
     response = lambda_client.invoke(
         FunctionName=f'alpha-WebMonitoringCRUD',
-        InvocationType='RequestResponse',
+        InvocationType='RequestResponse',  # Wait for response
         Payload=json.dumps(payload)
     )
     
+    # Parse Lambda response
     result = json.loads(response['Payload'].read())
-    assert result['statusCode'] == 201
+    assert result['statusCode'] == 201  # HTTP 201 Created
     
+    # Verify response body contains target data
     body = json.loads(result['body'])
-    assert 'TargetId' in body
+    assert 'TargetId' in body  # UUID generated
     assert body['name'] == 'test-functional-site'
     assert body['url'] == 'https://example.com'
 
