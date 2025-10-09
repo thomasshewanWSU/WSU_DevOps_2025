@@ -40,8 +40,8 @@ cloudformation = boto3.client('cloudformation')
 dynamodb = boto3.resource('dynamodb')
 cloudwatch = boto3.client('cloudwatch')
 
-# Stack name for alpha stage
-STACK_NAME = 'WebMonitoringPipeline-alpha-ThomasShewan22080488Stack'
+# Stack name for alpha stage (deployed by pipeline)
+STACK_NAME = 'alpha-ThomasShewan22080488Stack'
 
 
 @pytest.fixture(scope='module')
