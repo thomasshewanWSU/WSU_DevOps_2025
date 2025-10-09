@@ -86,7 +86,7 @@ class PipelineStack(Stack):
         # FUNCTIONAL TESTS: Test Lambda functions in deployed AWS environment
         # These tests invoke actual Lambda functions and verify their behavior
         # Requires resources to be deployed (runs after alpha deployment)
-        functional_test = pipelines.ShellStep(
+        functional_test = pipelines.CodeBuildStep(
             "FunctionalTests",
             input=source,
             commands=[
@@ -125,7 +125,7 @@ class PipelineStack(Stack):
         # INTEGRATION TESTS: End-to-end workflow validation
         # Tests complete user journeys through API Gateway, Lambda, DynamoDB, CloudWatch
         # Validates that all services work together correctly
-        integration_test = pipelines.ShellStep(
+        integration_test = pipelines.CodeBuildStep(
             "IntegrationTests",
             input=source,
             commands=[
