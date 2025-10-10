@@ -29,5 +29,5 @@ class MyPipelineStage(Stage):
         ThomasShewan22080488Stack(
             self,
             "ThomasShewan22080488Stack",
-            stage_name=construct_id  # Examples: 'alpha', 'prod'
+            stage_name=construct_id 
         )

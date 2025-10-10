@@ -326,7 +326,6 @@ def add_dashboard_widgets(website_name, dashboard_name):
         print(f"Dashboard '{dashboard_name}' not found - skipping widget updates")
     except Exception as e:
         print(f"Error updating dashboard for {website_name}: {str(e)}")
-        # Don't raise - dashboard updates are not critical
 
 
 def remove_dashboard_widgets(website_name, dashboard_name):
@@ -410,4 +409,3 @@ def remove_dashboard_widgets(website_name, dashboard_name):
         print(f"Dashboard '{dashboard_name}' not found - skipping widget removal")
     except Exception as e:
         print(f"Error removing {website_name} from dashboard: {str(e)}")
-        # Don't raise - dashboard updates are not critical

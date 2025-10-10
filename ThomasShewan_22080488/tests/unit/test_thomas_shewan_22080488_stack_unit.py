@@ -139,7 +139,6 @@ def test_lambda_alarms_created(template):
     CloudFormation Resource: AWS::CloudWatch::Alarm
     Documentation: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarm.html
     """
-    # Updated alarm names to match actual implementation
     for alarm_name in [
         "MonitoringLambda-Duration-Alarm",
         "MonitoringLambda-Invocations-Alarm",
@@ -248,7 +247,6 @@ def test_all_lambda_operational_alarms_exist(template):
     Best Practice: Monitor all Lambda operational metrics
     https://docs.aws.amazon.com/lambda/latest/dg/monitoring-metrics.html
     """
-    # Updated alarm names to match actual implementation
     alarm_names = [
         "MonitoringLambda-Duration-Alarm",
         "MonitoringLambda-Invocations-Alarm",
@@ -271,7 +269,7 @@ def test_memory_alarm_threshold_appropriate(template):
     template.has_resource_properties(
         "AWS::CloudWatch::Alarm",
         {
-            "AlarmName": "MonitoringLambda-Memory-Alarm",  # Updated name
+            "AlarmName": "MonitoringLambda-Memory-Alarm", 
             "Threshold": 110, 
             "ComparisonOperator": "GreaterThanThreshold"
         }
