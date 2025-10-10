@@ -559,16 +559,14 @@ class ThomasShewan22080488Stack(Stack):
             period=Duration.minutes(5)
         )
         
-        # Alert if memory usage exceeds 80% of allocated memory
-        # Default Lambda allocation is 128MB, so threshold is ~102MB
+        # Alert if memory usage exceeds 80% ish of allocated memory
         # Memory configuration guide: https://docs.aws.amazon.com/lambda/latest/dg/configuration-memory.html
         memory_alarm = cloudwatch.Alarm(
             self, "CanaryLambdaMemoryAlarm",
             alarm_name=f"{stage_prefix}MonitoringLambda-Memory-Alarm",
             alarm_description=f"[{stage_name.upper()}] Lambda memory usage exceeds 80% threshold",
             metric=max_memory_used_metric,
-            # 80% of 128MB = 102MB
-            threshold=102,
+            threshold=110,
             # Require 2 consecutive breaches to reduce false positives
             evaluation_periods=2,
             datapoints_to_alarm=2,
