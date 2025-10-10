@@ -272,7 +272,7 @@ def test_memory_alarm_threshold_appropriate(template):
         "AWS::CloudWatch::Alarm",
         {
             "AlarmName": "MonitoringLambda-Memory-Alarm",  # Updated name
-            "Threshold": 102, 
+            "Threshold": 110, 
             "ComparisonOperator": "GreaterThanThreshold"
         }
     )
